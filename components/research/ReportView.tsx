@@ -140,13 +140,13 @@ export function ReportView({
           <div style={{ width: '1px', height: '18px', background: 'var(--border-subtle)' }} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+            <span className="report-header-company-name" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
               {report.company.name}
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexShrink: 0 }}>
+        <div className="report-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexShrink: 0 }}>
           <ThemeToggle size="sm" />
 
           <button
@@ -163,7 +163,7 @@ export function ReportView({
             title="Export / Print Dossier"
           >
             <Printer size={14} />
-            <span>Export</span>
+            <span className="report-action-label">Export</span>
           </button>
 
           <button
@@ -182,12 +182,12 @@ export function ReportView({
             {inWatchlist ? (
               <>
                 <BookmarkCheck size={14} style={{ color: 'var(--positive)' }} />
-                <span>Saved</span>
+                <span className="report-action-label">Saved</span>
               </>
             ) : (
               <>
                 <BookmarkPlus size={14} />
-                <span>Watchlist</span>
+                <span className="report-action-label">Watchlist</span>
               </>
             )}
           </button>
@@ -206,7 +206,7 @@ export function ReportView({
             title="Refresh research with fresh data"
           >
             <RefreshCw size={13} />
-            <span>Re-research</span>
+            <span className="report-action-label">Re-research</span>
           </button>
         </div>
       </header>
@@ -226,6 +226,7 @@ export function ReportView({
 
         {/* Clean Segmented Pill Navigation */}
         <nav
+          className="report-tab-nav"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -237,7 +238,7 @@ export function ReportView({
             borderRadius: '10px',
             margin: '1.75rem 0 1.5rem',
             scrollbarWidth: 'none',
-            whiteSpace: 'nowrap',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {tabs.map((tab) => {
@@ -246,6 +247,7 @@ export function ReportView({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                className="report-tab-btn"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -260,9 +262,11 @@ export function ReportView({
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.25)' : 'none',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
-                <span style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                <span className="report-tab-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                   {tab.icon}
                 </span>
                 <span>{tab.label}</span>

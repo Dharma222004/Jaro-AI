@@ -7,21 +7,14 @@ export const metadata: Metadata = {
     'Research Indian stocks using AI-powered analysis, current web information, financial documents, and structured research reports.',
   keywords: ['stock research', 'Indian stocks', 'NSE', 'BSE', 'equity research', 'AI finance'],
   authors: [{ name: 'Jaro AI' }],
-  robots: 'noindex, nofollow', // Private tool
-  icons: {
-    icon: [
-      { url: '/logo.png', type: 'image/png', sizes: '32x32' },
-      { url: '/logo.png', type: 'image/png', sizes: '16x16' },
-    ],
-    apple: [{ url: '/logo.png', sizes: '180x180' }],
-    shortcut: '/logo.png',
-  },
+  robots: 'noindex, nofollow',
   openGraph: {
     title: 'Jaro AI — AI-Powered Stock Research',
     description: 'Research Indian stocks using AI-powered analysis.',
     images: [{ url: '/logo.png' }],
   },
 };
+
 
 
 export default function RootLayout({

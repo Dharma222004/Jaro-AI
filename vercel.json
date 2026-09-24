@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/research/start/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/research/stream/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/research/chat/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/market/quote/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  ticker       String
+  exchange     String   @default("NSE")
+  sector       String?
+  industry     String?
+  country      String   @default("India")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reports    ResearchReport[]
+  watchlists Watchlist[]
+
+  @@unique([ticker, exchange])
+  @@map("companies")
+}
+
+model ResearchReport {
+  id          String   @id @default(cuid())
+  companyId   String
+  query       String
+  status      String   @default("pending") // pending | running | completed | failed
+  reportJson  String?  // Full structured JSON report
+  errorMsg    String?
+  processingMs Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company          @relation(fields: [companyId], references: [id])
+  sources ResearchSource[]
+
+  @@map("research_reports")
+}
+
+model ResearchSource {
+  id           String   @id @default(cuid())
+  reportId     String
+  url          String
+  title        String
+  domain       String
+  sourceType   String?  // annual_report | exchange_filing | news | analysis | other
+  authority    String?  // high | medium | low
+  relevance    Float?
+  publishedAt  DateTime?
+  retrievedAt  DateTime @default(now())
+  snippet      String?
+
+  report ResearchReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("research_sources")
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  companyId String
+  addedAt   DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId])
+  @@map("watchlists")
+}

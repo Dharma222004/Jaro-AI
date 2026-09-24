@@ -2,12 +2,18 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://jaro-ai.vercel.app'),
   title: 'Jaro AI — AI-Powered Stock Research',
   description:
     'Research Indian stocks using AI-powered analysis, current web information, financial documents, and structured research reports.',
   keywords: ['stock research', 'Indian stocks', 'NSE', 'BSE', 'equity research', 'AI finance'],
   authors: [{ name: 'Jaro AI' }],
   robots: 'noindex, nofollow',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     title: 'Jaro AI — AI-Powered Stock Research',
     description: 'Research Indian stocks using AI-powered analysis.',

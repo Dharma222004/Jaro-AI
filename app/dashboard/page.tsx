@@ -1,17 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import {
-  Search,
-  ArrowRight,
-  ShieldAlert,
-  Globe,
-  BarChart3,
-  MessageSquare,
-  FileText,
-  Sparkles,
-  TrendingUp,
-} from 'lucide-react';
+import { Search, ArrowRight, ShieldAlert } from 'lucide-react';
 import type { CompanyCandidate } from '@/types/company';
 import type { ResearchReport, ResearchSourceMeta } from '@/types/research';
 import { ResearchProgress } from '@/components/research/ResearchProgress';
@@ -33,45 +23,12 @@ export interface StageItem {
 }
 
 const INITIAL_STAGES: StageItem[] = [
-  { id: 'company_id', label: 'Query intent & NSE/BSE entity resolution', status: 'pending' },
-  { id: 'web_research', label: 'Live web search & multi-source news collection', status: 'pending' },
-  { id: 'metric_extraction', label: 'Financial statements, valuation & technical extraction', status: 'pending' },
+  { id: 'company_id', label: 'Company identification & NSE/BSE resolution', status: 'pending' },
+  { id: 'web_research', label: 'Multi-source research collection', status: 'pending' },
+  { id: 'metric_extraction', label: 'Financial statements & ratio extraction', status: 'pending' },
   { id: 'validation', label: 'Cross-source validation & conflict audit', status: 'pending' },
-  { id: 'ai_analysis', label: 'Synthesizing Institutional Report & Analyst Chat Briefing', status: 'pending' },
-  { id: 'report_validation', label: 'Finalizing 6-pillar scorecard & grounded citations', status: 'pending' },
-];
-
-const QUICK_ANALYST_QUERIES = [
-  {
-    ticker: 'RELIANCE',
-    label: 'Reliance Industries: Fundamentals, technical levels & latest news',
-    query: 'Analyze Reliance Industries fundamentals, valuation, technical support/resistance and latest news',
-  },
-  {
-    ticker: 'HAL',
-    label: 'Hindustan Aeronautics: Order book, ROE & analyst recommendation',
-    query: 'Deep research on Hindustan Aeronautics (HAL) defense order book, fundamentals, technicals and recommendation',
-  },
-  {
-    ticker: 'TCS',
-    label: 'TCS: Earnings trajectory, margins, P/E valuation & technicals',
-    query: 'TCS latest quarterly performance, operating margins, valuation ratios and technical outlook',
-  },
-  {
-    ticker: 'ETERNAL',
-    label: 'Zomato (Eternal): Quick commerce growth, profitability & target price',
-    query: 'Zomato Blinkit growth, fundamental valuation, latest analyst target price and technical structure',
-  },
-  {
-    ticker: 'HDFCBANK',
-    label: 'HDFC Bank: NIM trend, deposit growth, valuation & technicals',
-    query: 'HDFC Bank fundamental analysis, NIM and credit growth, valuation vs historical average and technical levels',
-  },
-  {
-    ticker: 'TATAMOTORS',
-    label: 'Tata Motors: EV & JLR outlook, debt profile & valuation',
-    query: 'Tata Motors JLR and EV fundamentals, free cash flow, debt reduction and technical momentum',
-  },
+  { id: 'ai_analysis', label: 'Jaro AI is Analyzing & Synthesizing Financials', status: 'pending' },
+  { id: 'report_validation', label: 'Report finalization & quality verification', status: 'pending' },
 ];
 
 export default function DashboardPage() {
@@ -303,72 +260,28 @@ export default function DashboardPage() {
     );
   }
 
+  // Minimalistic Research Terminal View
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div
-        className="page-container"
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          paddingTop: '2.5rem',
-          paddingBottom: '2.5rem',
-        }}
-      >
-        <div style={{ maxWidth: '820px', margin: '0 auto', width: '100%' }}>
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.3rem 0.75rem',
-                borderRadius: '6px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '0.73rem',
-                fontWeight: 700,
-                color: 'var(--accent)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: '1rem',
-              }}
-            >
-              <Sparkles size={13} />
-              <span>Deep Equity Research + Live Web-Grounded Analyst Chat</span>
-            </div>
-
+      <div className="page-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto', width: '100%' }}>
+          {/* Minimalist Header */}
+          <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
             <h1
               style={{
-                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+                fontSize: 'clamp(1.75rem, 4vw, 2.35rem)',
                 fontWeight: 800,
                 letterSpacing: '-0.03em',
                 color: 'var(--text-primary)',
-                lineHeight: 1.18,
-                marginBottom: '0.75rem',
+                lineHeight: 1.2,
               }}
             >
-              Ask anything about a stock, fundamentals, technicals, or latest news
+              Ask about any company
             </h1>
-            <p
-              style={{
-                fontSize: '0.94rem',
-                color: 'var(--text-secondary)',
-                maxWidth: '640px',
-                margin: '0 auto',
-                lineHeight: 1.55,
-              }}
-            >
-              Jaro AI understands your query, searches live financial web sources &amp; market data, and delivers both an{' '}
-              <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Institutional Equity Dossier</strong> and a{' '}
-              <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Conversational Analyst Reply</strong> side-by-side so you can keep asking follow-ups.
-            </p>
           </div>
 
-          {/* Search Bar */}
-          <div className="search-wrapper" style={{ marginBottom: '1.5rem' }}>
+          {/* Clean Search Bar */}
+          <div className="search-wrapper">
             <div className="search-icon-pos">
               <Search size={19} strokeWidth={2.4} />
             </div>
@@ -378,7 +291,7 @@ export default function DashboardPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about any stock, ticker, fundamentals, technicals, or news (e.g., 'Reliance valuation & latest news')..."
+              placeholder="Search company, NSE ticker, or ask a stock question..."
               className="search-input-field"
               autoFocus
             />
@@ -388,177 +301,9 @@ export default function DashboardPage() {
                 disabled={!query.trim()}
                 className="btn-gradient"
               >
-                <span>Analyze</span>
+                <span>Research</span>
                 <ArrowRight size={14} />
               </button>
-            </div>
-          </div>
-
-          {/* Pipeline Workflow Strip */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))',
-              gap: '0.65rem',
-              marginBottom: '2rem',
-            }}
-          >
-            <div
-              style={{
-                padding: '0.75rem 0.9rem',
-                borderRadius: '8px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.6rem',
-              }}
-            >
-              <Globe size={16} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  1. Live Web Search
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '2px' }}>
-                  Latest filings, earnings concalls, analyst target prices &amp; breaking news.
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '0.75rem 0.9rem',
-                borderRadius: '8px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.6rem',
-              }}
-            >
-              <BarChart3 size={16} style={{ color: 'var(--positive)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  2. Fundamentals &amp; Technicals
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '2px' }}>
-                  P/E, ROE, ROCE, 6-pillar scorecard, 50/200 DMA, RSI &amp; support/resistance.
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '0.75rem 0.9rem',
-                borderRadius: '8px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.6rem',
-              }}
-            >
-              <FileText size={16} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  3. Full Analyst Dossier
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '2px' }}>
-                  Bull vs. Bear thesis, conviction score, valuation matrix &amp; risk audit.
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '0.75rem 0.9rem',
-                borderRadius: '8px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.6rem',
-              }}
-            >
-              <MessageSquare size={16} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  4. Interactive Analyst Chat
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '2px' }}>
-                  Direct chatbot answer + continuous web-grounded follow-up Q&amp;A.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick-Start Institutional Queries */}
-          <div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.07em',
-                color: 'var(--text-muted)',
-                marginBottom: '0.65rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-              }}
-            >
-              <TrendingUp size={13} style={{ color: 'var(--accent)' }} />
-              <span>Try an Institutional Deep-Dive Query</span>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                gap: '0.55rem',
-              }}
-            >
-              {QUICK_ANALYST_QUERIES.map((item) => (
-                <button
-                  key={item.ticker}
-                  onClick={() => runResearch(item.query)}
-                  style={{
-                    textAlign: 'left',
-                    padding: '0.7rem 0.85rem',
-                    borderRadius: '8px',
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.15s ease, background 0.15s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.25rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: 'var(--accent)',
-                      }}
-                    >
-                      NSE: {item.ticker}
-                    </span>
-                    <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '0.78rem',
-                      color: 'var(--text-secondary)',
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {item.label}
-                  </span>
-                </button>
-              ))}
             </div>
           </div>
         </div>

@@ -131,7 +131,7 @@ export async function runResearchPipeline(params: {
     notify('web_research', 'running', 'Searching Screener, BSE/NSE filings, investor presentations, and financial press');
     let webData;
     try {
-      webData = await collectMultiSourceData(company, (msg) => notify('web_research', 'running', msg));
+      webData = await collectMultiSourceData(company, (msg) => notify('web_research', 'running', msg), query);
       notify('web_research', 'completed', `Retrieved and prioritized ${webData.sources.length} financial sources`);
     } catch (err) {
       notify('web_research', 'failed');
@@ -228,13 +228,17 @@ export async function runResearchPipeline(params: {
         if (liveData.ebitdaMargins != null && !prof.ebitdaMargin?.value)       prof.ebitdaMargin    = m(Math.round(liveData.ebitdaMargins * 1000) / 10, '%');
         finalReport.profitability = prof;
 
+        if (liveData.targetMeanPrice != null && finalReport.analystVerdict && !finalReport.analystVerdict.fairValueRange) {
+          finalReport.analystVerdict.fairValueRange = `₹${Math.round(liveData.targetMeanPrice)} (Consensus Mean Target)`;
+        }
+
         notify('live_data', 'completed', `Live: ₹${liveData.price} · ${liveData.exchange} · P/E ${liveData.trailingPE?.toFixed(1) ?? '—'}x`);
       } else {
-        notify('live_data', 'completed', 'Yahoo Finance: ticker not found — using Tavily data');
+        notify('live_data', 'completed', 'Yahoo Finance: ticker not found — using web research data');
       }
     } catch (liveErr) {
       console.warn('[research] Yahoo Finance enrichment failed (non-fatal):', liveErr);
-      notify('live_data', 'completed', 'Live data unavailable — using Tavily data');
+      notify('live_data', 'completed', 'Live data unavailable — using web research data');
     }
 
     // ── 8. Schema Validation ──────────────────────────────────────────────────
@@ -245,6 +249,16 @@ export async function runResearchPipeline(params: {
     }
     const validatedReport = safeValidation.data;
     notify('report_validation', 'completed');
+
+    const finalSources: ResearchSourceMeta[] = (validatedReport.sources ?? webData.sources).map((s, idx) => ({
+      id: s.id ?? `src_${idx + 1}`,
+      url: s.url,
+      title: s.title,
+      domain: s.domain,
+      sourceType: (s.sourceType as ResearchSourceMeta['sourceType']) ?? 'analysis',
+      authority: s.authority ?? 'medium',
+      retrievedAt: new Date().toISOString(),
+    }));
 
     // ── 9. Persist to DB (non-fatal) ──────────────────────────────────────────
     const processingMs = Date.now() - startTime;
@@ -257,7 +271,7 @@ export async function runResearchPipeline(params: {
             reportJson: JSON.stringify(validatedReport),
             processingMs,
           });
-          await db.saveResearchSources(reportId, webData.sources);
+          await db.saveResearchSources(reportId, finalSources);
         }
       } catch (saveErr) {
         console.warn('[research] DB save failed (non-fatal):', saveErr instanceof Error ? saveErr.message : saveErr);
@@ -269,7 +283,7 @@ export async function runResearchPipeline(params: {
       status: 'completed',
       company,
       report: validatedReport,
-      sources: webData.sources,
+      sources: finalSources,
       processingMs,
       fromCache: false,
     };

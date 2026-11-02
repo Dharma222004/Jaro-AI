@@ -127,8 +127,28 @@ export interface TechnicalAnalysis {
   sma50?: number | string | null;
   sma200?: number | string | null;
   rsi?: number | string | null;
+  supportLevels?: string[];
+  resistanceLevels?: string[];
+  momentumSignal?: string;
   trend?: 'Bullish' | 'Neutral' | 'Bearish' | string;
   observations?: string;
+}
+
+export interface FundamentalScorecardItem {
+  factor: string;
+  score: string;
+  verdict: string;
+}
+
+export interface AnalystVerdict {
+  stance: string;
+  convictionScore?: number | null;
+  valuationStatus?: string;
+  fairValueRange?: string | null;
+  thesisSummary: string;
+  bullCase: string[];
+  bearCase: string[];
+  fundamentalScorecard?: FundamentalScorecardItem[];
 }
 
 export interface ReportSource {
@@ -236,6 +256,8 @@ export interface ResearchReport {
   risks: RiskItem[];
   managementCommentary: CommentaryItem[];
   technicalAnalysis?: TechnicalAnalysis;
+  analystVerdict?: AnalystVerdict;
+  initialChatbotReply?: string;
   dataQuality?: DataQualityReport;
   researchSummary: string;
   sources: ReportSource[];

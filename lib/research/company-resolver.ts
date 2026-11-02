@@ -1,5 +1,6 @@
 import type { CompanyIdentity, CompanyCandidate } from '@/types/company';
 import { resolveCompany as resolveCompanyViaGroq } from '@/lib/groq/client';
+import { isGeminiConfigured, resolveCompanyWithGemini } from '@/lib/gemini/client';
 
 export interface CompanyResolutionOutcome {
   resolved: boolean;
@@ -8,8 +9,6 @@ export interface CompanyResolutionOutcome {
   error?: string;
 }
 
-// Curated high-precision database of major Indian listed companies
-// Guarantees instant, 100% accurate resolution for top companies
 const CURATED_INDIAN_COMPANIES: Record<string, CompanyIdentity & { aliases: string[]; screenerSlug: string }> = {
   RELIANCE: {
     name: 'Reliance Industries Limited',
@@ -42,7 +41,6 @@ const CURATED_INDIAN_COMPANIES: Record<string, CompanyIdentity & { aliases: stri
     sector: 'Financial Services',
     industry: 'Private Sector Bank',
     screenerSlug: 'HDFCBANK',
-    // NOTE: bare 'hdfc' removed — it caused greedy matches against 'hdfc life', 'hdfc amc' etc.
     aliases: ['hdfc bank', 'hdfcbank', 'hdfc bank limited'],
   },
   HDFCLIFE: {
@@ -77,7 +75,6 @@ const CURATED_INDIAN_COMPANIES: Record<string, CompanyIdentity & { aliases: stri
     screenerSlug: 'SRILOTUSDVLP',
     aliases: ['sri lotus', 'sri lotus developers', 'srilotusdvlp', 'lotus developers'],
   },
-
   INFY: {
     name: 'Infosys Limited',
     ticker: 'INFY',
@@ -164,7 +161,7 @@ const CURATED_INDIAN_COMPANIES: Record<string, CompanyIdentity & { aliases: stri
     sector: 'Consumer Services',
     industry: 'Food Delivery & Quick Commerce (Blinkit)',
     screenerSlug: 'ZOMATO',
-    aliases: ['zomato', 'blinkit', 'zomato limited'],
+    aliases: ['zomato', 'blinkit', 'zomato limited', 'eternal'],
   },
   ICICIBANK: {
     name: 'ICICI Bank Limited',
@@ -234,7 +231,6 @@ const CURATED_INDIAN_COMPANIES: Record<string, CompanyIdentity & { aliases: stri
   },
 };
 
-// Common ambiguous prefixes that must prompt disambiguation
 const AMBIGUOUS_CLUSTERS: Record<string, CompanyCandidate[]> = {
   nrb: [
     {
@@ -265,9 +261,9 @@ const AMBIGUOUS_CLUSTERS: Record<string, CompanyCandidate[]> = {
     },
   ],
   hdfc: [
-    { name: 'HDFC Bank Limited', ticker: 'HDFCBANK', exchange: 'NSE', description: 'India\'s largest private sector bank' },
+    { name: 'HDFC Bank Limited', ticker: 'HDFCBANK', exchange: 'NSE', description: "India's largest private sector bank" },
     { name: 'HDFC Life Insurance Company Limited', ticker: 'HDFCLIFE', exchange: 'NSE', description: 'Leading life insurance company backed by HDFC Group' },
-    { name: 'HDFC Asset Management Company Limited', ticker: 'HDFCAMC', exchange: 'NSE', description: 'One of India\'s largest mutual fund asset managers' },
+    { name: 'HDFC Asset Management Company Limited', ticker: 'HDFCAMC', exchange: 'NSE', description: "One of India's largest mutual fund asset managers" },
   ],
   tata: [
     { name: 'Tata Motors Limited', ticker: 'TATAMOTORS', exchange: 'NSE', description: 'Automotive and EV manufacturer (including JLR)' },
@@ -290,19 +286,23 @@ const AMBIGUOUS_CLUSTERS: Record<string, CompanyCandidate[]> = {
   ],
   birla: [
     { name: 'Grasim Industries Limited', ticker: 'GRASIM', exchange: 'NSE', description: 'Aditya Birla Group flagship (Viscose, Chemicals & Paints)' },
-    { name: 'UltraTech Cement Limited', ticker: 'ULTRACEMCO', exchange: 'NSE', description: 'India’s largest cement manufacturer' },
+    { name: 'UltraTech Cement Limited', ticker: 'ULTRACEMCO', exchange: 'NSE', description: "India's largest cement manufacturer" },
     { name: 'Hindalco Industries Limited', ticker: 'HINDALCO', exchange: 'NSE', description: 'Aluminium and copper producer (Novelis)' },
   ],
 };
 
 /**
- * Resolves a company from user query using local curated dictionary first,
- * checking for ambiguous group names, and falling back to Groq LLM if needed.
+ * Resolves a company from user query using:
+ * 1. Local curated dictionary & ambiguous clusters
+ * 2. Gemini with Google Search grounding (understands natural language questions, tickers, and finance topics)
+ * 3. Groq fallback if configured
  */
 export async function identifyCompany(rawQuery: string): Promise<CompanyResolutionOutcome> {
   const query = rawQuery.trim();
-  const lower = query.toLowerCase()
-    .replace(/^(analyse|analyze|research|what are the risks of|how is|fundamentals of|report on)\s+/i, '')
+  const lower = query
+    .toLowerCase()
+    .replace(/^(analyse|analyze|research|what are the risks of|how is|fundamentals of|report on|tell me about|explain|should i buy|what about)\s+/i, '')
+    .replace(/\s+(stock|share|shares|fundamentals|technicals|news|analysis|report|target price|valuation)$/i, '')
     .trim();
 
   // 1. Check for exact ambiguous clusters (e.g. user typed just "Tata" or "Adani")
@@ -313,7 +313,7 @@ export async function identifyCompany(rawQuery: string): Promise<CompanyResoluti
     };
   }
 
-  // 2. Check curated dictionary
+  // 2. Check curated dictionary (exact match or alias match)
   for (const [key, comp] of Object.entries(CURATED_INDIAN_COMPANIES)) {
     if (key.toLowerCase() === lower || comp.ticker.toLowerCase() === lower) {
       return {
@@ -331,7 +331,6 @@ export async function identifyCompany(rawQuery: string): Promise<CompanyResoluti
       };
     }
 
-    // Alias matching — exact match only. No bare includes().
     const aliasMatch = comp.aliases.some((alias) => lower === alias);
     if (aliasMatch) {
       return {
@@ -350,7 +349,28 @@ export async function identifyCompany(rawQuery: string): Promise<CompanyResoluti
     }
   }
 
-  // 3. Fallback to Groq company resolution
+  // 3. Primary AI resolution: Gemini + Google Search Grounding
+  if (isGeminiConfigured()) {
+    try {
+      const geminiResult = await resolveCompanyWithGemini(query);
+      if (geminiResult.resolved && geminiResult.company) {
+        return {
+          resolved: true,
+          company: geminiResult.company,
+        };
+      }
+      if (!geminiResult.resolved && geminiResult.candidates && geminiResult.candidates.length > 0) {
+        return {
+          resolved: false,
+          candidates: geminiResult.candidates,
+        };
+      }
+    } catch (err) {
+      console.warn('[company-resolver] Gemini resolution failed, trying fallback:', err);
+    }
+  }
+
+  // 4. Fallback to Groq company resolution if configured
   try {
     const groqResult = await resolveCompanyViaGroq(query);
     if (groqResult.resolved && groqResult.company) {

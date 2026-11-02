@@ -93,8 +93,26 @@ export const TechnicalAnalysisSchema = z.object({
   sma50: z.union([z.string(), z.number(), z.null()]).optional(),
   sma200: z.union([z.string(), z.number(), z.null()]).optional(),
   rsi: z.union([z.string(), z.number(), z.null()]).optional(),
+  supportLevels: z.array(z.string()).optional(),
+  resistanceLevels: z.array(z.string()).optional(),
+  momentumSignal: z.string().optional(),
   trend: z.string().optional(),
   observations: z.string().optional(),
+});
+
+export const AnalystVerdictSchema = z.object({
+  stance: z.string().default('Neutral / Hold'),
+  convictionScore: z.number().nullable().optional(),
+  valuationStatus: z.string().optional(),
+  fairValueRange: z.string().nullable().optional(),
+  thesisSummary: z.string().default(''),
+  bullCase: z.array(z.string()).default([]),
+  bearCase: z.array(z.string()).default([]),
+  fundamentalScorecard: z.array(z.object({
+    factor: z.string(),
+    score: z.string(),
+    verdict: z.string(),
+  })).optional(),
 });
 
 export const ResearchReportSchema = z.object({
@@ -172,6 +190,8 @@ export const ResearchReportSchema = z.object({
   risks: z.array(RiskItemSchema).default([]),
   managementCommentary: z.array(CommentaryItemSchema).default([]),
   technicalAnalysis: TechnicalAnalysisSchema.optional(),
+  analystVerdict: AnalystVerdictSchema.optional(),
+  initialChatbotReply: z.string().optional(),
   dataQuality: DataQualityReportSchema.optional(),
   researchSummary: z.string().default(''),
   sources: z.array(ReportSourceSchema).default([]),
@@ -187,7 +207,6 @@ export function validateResearchReport(data: unknown): ResearchReport {
 export function sanitizeReportData(data: Record<string, unknown>, fallbackQuery = '', fallbackDate = new Date().toISOString()): Record<string, unknown> {
   const sanitized = { ...data };
 
-  // Ensure top-level arrays exist
   if (!Array.isArray(sanitized.recentDevelopments)) sanitized.recentDevelopments = [];
   if (!Array.isArray(sanitized.growthDrivers)) sanitized.growthDrivers = [];
   if (!Array.isArray(sanitized.strengths)) sanitized.strengths = [];
@@ -195,7 +214,6 @@ export function sanitizeReportData(data: Record<string, unknown>, fallbackQuery 
   if (!Array.isArray(sanitized.managementCommentary)) sanitized.managementCommentary = [];
   if (!Array.isArray(sanitized.sources)) sanitized.sources = [];
 
-  // Ensure strings exist
   if (typeof sanitized.researchSummary !== 'string') {
     sanitized.researchSummary = typeof sanitized.summary === 'string' ? sanitized.summary : 'No research summary provided.';
   }
@@ -206,8 +224,6 @@ export function sanitizeReportData(data: Record<string, unknown>, fallbackQuery 
     sanitized.queryAsked = fallbackQuery;
   }
 
-  // Ensure metric structures don't have null instead of objects
-  const defaultMetric = { value: null, unit: '', period: null };
   const categories = ['financials', 'profitability', 'valuation', 'shareholding'] as const;
   for (const cat of categories) {
     if (!sanitized[cat] || typeof sanitized[cat] !== 'object') {

@@ -17,6 +17,10 @@ import {
   Activity,
   Printer,
   CheckCircle2,
+  MessageSquare,
+  Columns,
+  TrendingUp,
+  Target,
 } from 'lucide-react';
 import type {
   ResearchReport,
@@ -27,6 +31,7 @@ import type {
 import { formatDate, formatNumber } from '@/lib/formatting/numbers';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { LiveMarketPanel } from './LiveMarketPanel';
+import { ResearchChatDrawer } from './ResearchChatDrawer';
 
 interface ReportViewProps {
   report: ResearchReport;
@@ -54,6 +59,7 @@ export function ReportView({
   onRefresh,
 }: ReportViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [workspaceMode, setWorkspaceMode] = useState<'split' | 'report' | 'chat'>('split');
   const [isAddingToWatchlist, setIsAddingToWatchlist] = useState(false);
   const [inWatchlist, setInWatchlist] = useState(false);
 
@@ -211,117 +217,241 @@ export function ReportView({
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="page-container" style={{ maxWidth: '1080px', margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
-        {/* Institutional Company Header */}
-        <CompanyHeaderCard report={report} />
-
-        {/* Live Yahoo Finance Market Data Panel */}
-        <div style={{ marginTop: '1rem' }}>
-          <LiveMarketPanel
-            ticker={report.company.ticker}
-            exchange={(report.company.exchange === 'BSE' ? 'BSE' : 'NSE') as 'NSE' | 'BSE'}
-          />
+      {/* Workspace Toolbar: View Mode Toggle (Split Report + Chat | Full Report | Full Analyst Chat) */}
+      <div
+        style={{
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--bg-surface)',
+          padding: '0.55rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+            {report.company.exchange}: {report.company.ticker}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{report.company.sector || 'Institutional Equity Dossier'}</span>
+          {report.analystVerdict?.stance && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                Analyst Stance: {report.analystVerdict.stance}
+              </span>
+            </>
+          )}
         </div>
 
-        {/* Clean Segmented Pill Navigation */}
-        <nav
-          className="report-tab-nav"
+        <div
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem',
-            overflowX: 'auto',
-            padding: '0.4rem',
-            background: 'var(--bg-surface)',
+            gap: '0.25rem',
+            padding: '0.2rem',
+            background: 'var(--bg-elevated)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: '10px',
-            margin: '1.75rem 0 1.5rem',
-            scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
+            borderRadius: '8px',
           }}
         >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className="report-tab-btn"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.55rem 0.95rem',
-                  borderRadius: '7px',
-                  fontSize: '0.84rem',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                  background: isActive ? 'var(--bg-elevated)' : 'transparent',
-                  border: isActive ? '1px solid var(--border-default)' : '1px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.25)' : 'none',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
-              >
-                <span className="report-tab-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                  {tab.icon}
-                </span>
-                <span>{tab.label}</span>
-                {tab.id === 'audit' && report.dataQuality?.conflicts && report.dataQuality.conflicts.length > 0 && (
-                  <span
+          <button
+            onClick={() => setWorkspaceMode('split')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '6px',
+              fontSize: '0.76rem',
+              fontWeight: workspaceMode === 'split' ? 700 : 500,
+              background: workspaceMode === 'split' ? 'var(--bg-surface)' : 'transparent',
+              color: workspaceMode === 'split' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: workspaceMode === 'split' ? '1px solid var(--border-default)' : '1px solid transparent',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Columns size={13} style={{ color: workspaceMode === 'split' ? 'var(--accent)' : 'var(--text-muted)' }} />
+            <span>Report + Analyst Chat</span>
+          </button>
+
+          <button
+            onClick={() => setWorkspaceMode('report')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '6px',
+              fontSize: '0.76rem',
+              fontWeight: workspaceMode === 'report' ? 700 : 500,
+              background: workspaceMode === 'report' ? 'var(--bg-surface)' : 'transparent',
+              color: workspaceMode === 'report' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: workspaceMode === 'report' ? '1px solid var(--border-default)' : '1px solid transparent',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <FileText size={13} style={{ color: workspaceMode === 'report' ? 'var(--accent)' : 'var(--text-muted)' }} />
+            <span>Full Report Only</span>
+          </button>
+
+          <button
+            onClick={() => setWorkspaceMode('chat')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '6px',
+              fontSize: '0.76rem',
+              fontWeight: workspaceMode === 'chat' ? 700 : 500,
+              background: workspaceMode === 'chat' ? 'var(--bg-surface)' : 'transparent',
+              color: workspaceMode === 'chat' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: workspaceMode === 'chat' ? '1px solid var(--border-default)' : '1px solid transparent',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <MessageSquare size={13} style={{ color: workspaceMode === 'chat' ? 'var(--accent)' : 'var(--text-muted)' }} />
+            <span>Full Analyst Chat</span>
+          </button>
+        </div>
+      </div>
+
+      {workspaceMode === 'chat' ? (
+        <div style={{ padding: '1rem 1.5rem' }}>
+          <ResearchChatDrawer
+            report={report}
+            mode="full"
+            onClose={() => setWorkspaceMode('split')}
+          />
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: workspaceMode === 'split' ? 'minmax(0, 1.35fr) minmax(380px, 0.85fr)' : '1fr',
+            alignItems: 'start',
+          }}
+        >
+          {/* Main Report Column */}
+          <main
+            className="page-container"
+            style={{
+              maxWidth: workspaceMode === 'split' ? '100%' : '1080px',
+              margin: '0 auto',
+              padding: '1.75rem 1.5rem 4rem',
+              minWidth: 0,
+            }}
+          >
+            {/* Institutional Company Header */}
+            <CompanyHeaderCard report={report} />
+
+            {/* Live Yahoo Finance Market Data Panel */}
+            <div style={{ marginTop: '1rem' }}>
+              <LiveMarketPanel
+                ticker={report.company.ticker}
+                exchange={(report.company.exchange === 'BSE' ? 'BSE' : 'NSE') as 'NSE' | 'BSE'}
+              />
+            </div>
+
+            {/* Segmented Tab Navigation */}
+            <nav
+              className="report-tab-nav"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                overflowX: 'auto',
+                padding: '0.4rem',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '10px',
+                margin: '1.75rem 0 1.5rem',
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="report-tab-btn"
                     style={{
-                      fontSize: '0.68rem',
-                      padding: '0.1rem 0.45rem',
-                      borderRadius: '10px',
-                      background: 'rgba(234, 179, 8, 0.15)',
-                      color: 'var(--warning)',
-                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.55rem 0.95rem',
+                      borderRadius: '7px',
+                      fontSize: '0.84rem',
+                      fontWeight: isActive ? 700 : 500,
+                      color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                      background: isActive ? 'var(--bg-elevated)' : 'transparent',
+                      border: isActive ? '1px solid var(--border-default)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
                     }}
                   >
-                    {report.dataQuality.conflicts.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+                    <span className="report-tab-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                      {tab.icon}
+                    </span>
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
 
-        {/* Tab Content Panels */}
-        {activeTab === 'overview' && (
-          <OverviewTab report={report} sourceMap={sourceMap} onTabChange={setActiveTab} />
-        )}
+            {/* Tab Content Panels */}
+            {activeTab === 'overview' && (
+              <OverviewTab report={report} sourceMap={sourceMap} onTabChange={setActiveTab} />
+            )}
 
-        {activeTab === 'financials' && (
-          <FinancialsTab report={report} sourceMap={sourceMap} />
-        )}
+            {activeTab === 'financials' && (
+              <FinancialsTab report={report} sourceMap={sourceMap} />
+            )}
 
-        {activeTab === 'business' && (
-          <BusinessTab report={report} />
-        )}
+            {activeTab === 'business' && (
+              <BusinessTab report={report} />
+            )}
 
-        {activeTab === 'valuation' && (
-          <ValuationTab report={report} sourceMap={sourceMap} />
-        )}
+            {activeTab === 'valuation' && (
+              <ValuationTab report={report} sourceMap={sourceMap} />
+            )}
 
-        {activeTab === 'developments' && (
-          <DevelopmentsTab report={report} sourceMap={sourceMap} />
-        )}
+            {activeTab === 'developments' && (
+              <DevelopmentsTab report={report} sourceMap={sourceMap} />
+            )}
 
-        {activeTab === 'risks' && (
-          <RisksTab report={report} sourceMap={sourceMap} />
-        )}
+            {activeTab === 'risks' && (
+              <RisksTab report={report} sourceMap={sourceMap} />
+            )}
 
-        {activeTab === 'technical' && (
-          <TechnicalTab report={report} />
-        )}
+            {activeTab === 'technical' && (
+              <TechnicalTab report={report} />
+            )}
 
-        {activeTab === 'audit' && (
-          <AuditTab report={report} />
-        )}
-      </main>
+            {activeTab === 'audit' && (
+              <AuditTab report={report} />
+            )}
+          </main>
+
+          {/* Right Pane: Simultaneous AI Analyst Chat (Docked in Split Mode, Floating in Report Mode) */}
+          {workspaceMode === 'split' ? (
+            <ResearchChatDrawer
+              report={report}
+              mode="docked"
+              onClose={() => setWorkspaceMode('report')}
+            />
+          ) : (
+            <ResearchChatDrawer report={report} mode="floating" />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -622,10 +752,10 @@ function OverviewTab({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ color: dq.overallConfidence === 'High' ? 'var(--positive)' : 'var(--warning)', fontWeight: 600 }}>
-                ● Data Confidence: {dq.overallConfidence}
+                Data Confidence: {dq.overallConfidence}
               </span>
               <span style={{ color: 'var(--text-muted)' }}>
-                ({dq.primarySourcesCount} primary & {dq.secondarySourcesCount} secondary sources audited)
+                · {dq.primarySourcesCount} primary & {dq.secondarySourcesCount} secondary sources audited
               </span>
             </div>
             <button
@@ -637,6 +767,159 @@ function OverviewTab({
           </div>
         )}
       </div>
+
+      {/* Institutional Analyst Verdict, Recommendation Thesis & 6-Factor Fundamental Scorecard */}
+      {report.analystVerdict && (
+        <div
+          className="card"
+          style={{
+            padding: '1.75rem',
+            borderRadius: '12px',
+            border: '1px solid var(--border-subtle)',
+            background: 'var(--bg-surface)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+              <Target size={18} style={{ color: 'var(--brand-jade)' }} />
+              <h3 style={{ fontSize: '1.02rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Analyst Verdict & Fundamental Evaluation
+              </h3>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 700, color: 'var(--brand-jade)' }}>
+                Stance: {report.analystVerdict.stance}
+              </span>
+              {report.analystVerdict.convictionScore != null && (
+                <>
+                  <span style={{ color: 'var(--text-muted)' }}>·</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Fundamental Score: {report.analystVerdict.convictionScore}/100
+                  </span>
+                </>
+              )}
+              {report.analystVerdict.valuationStatus && (
+                <>
+                  <span style={{ color: 'var(--text-muted)' }}>·</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    {report.analystVerdict.valuationStatus}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {report.analystVerdict.fairValueRange && (
+            <p style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+              Reference Valuation / Consensus Target Band: {report.analystVerdict.fairValueRange}
+            </p>
+          )}
+
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1.25rem' }}>
+            {report.analystVerdict.thesisSummary}
+          </p>
+
+          {/* 6-Factor Fundamental & Technical Scorecard */}
+          {report.analystVerdict.fundamentalScorecard && report.analystVerdict.fundamentalScorecard.length > 0 && (
+            <div style={{ marginBottom: '1.35rem' }}>
+              <h4 style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
+                6-Pillar Fundamental & Technical Scorecard
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.65rem' }}>
+                {report.analystVerdict.fundamentalScorecard.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '0.75rem 0.9rem',
+                      borderRadius: '8px',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {item.factor}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          fontFamily: 'var(--font-mono)',
+                          color:
+                            item.score.toLowerCase().includes('strong') ||
+                            item.score.toLowerCase().includes('bullish') ||
+                            item.score.toLowerCase().includes('attractive')
+                              ? 'var(--positive)'
+                              : item.score.toLowerCase().includes('weak') ||
+                                item.score.toLowerCase().includes('bearish') ||
+                                item.score.toLowerCase().includes('expensive')
+                              ? 'var(--negative)'
+                              : 'var(--warning)',
+                        }}
+                      >
+                        {item.score}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                      {item.verdict}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bull Case vs Bear Case */}
+          {(report.analystVerdict.bullCase?.length > 0 || report.analystVerdict.bearCase?.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem' }}>
+              {report.analystVerdict.bullCase?.length > 0 && (
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--positive)', marginBottom: '0.5rem' }}>
+                    Bull Case & Upside Triggers
+                  </h4>
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {report.analystVerdict.bullCase.map((pt, i) => (
+                      <li key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        + {pt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {report.analystVerdict.bearCase?.length > 0 && (
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--negative)', marginBottom: '0.5rem' }}>
+                    Bear Case & Downside Risks
+                  </h4>
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {report.analystVerdict.bearCase.map((pt, i) => (
+                      <li key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        - {pt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 8 Primary Research Snapshot KPI Cards (Section 16 Pillar 1) */}
       <div>
@@ -1141,7 +1424,7 @@ function DevelopmentsTab({
                   padding: '1rem',
                   borderRadius: '8px',
                   background: 'var(--bg-elevated)',
-                  borderLeft: '3px solid var(--accent)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <p style={{ fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.6, fontStyle: 'italic', marginBottom: '0.35rem' }}>
@@ -1299,37 +1582,114 @@ function RisksTab({
 
 function TechnicalTab({ report }: { report: ResearchReport }) {
   const tech = report.technicalAnalysis;
+  const [liveQuote, setLiveQuote] = useState<{ price?: number; high52w?: number; low52w?: number } | null>(null);
+
+  useEffect(() => {
+    const exchange = report.company.exchange === 'BSE' ? 'BSE' : 'NSE';
+    fetch(`/api/market/quote?ticker=${encodeURIComponent(report.company.ticker)}&exchange=${exchange}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setLiveQuote({ price: d.price, high52w: d.high52w, low52w: d.low52w });
+      })
+      .catch(() => {});
+  }, [report.company.ticker, report.company.exchange]);
+
+  const high52 = liveQuote?.high52w ?? tech?.high52W;
+  const low52 = liveQuote?.low52w ?? tech?.low52W;
+  const price = liveQuote?.price ?? tech?.price;
 
   return (
-    <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
-        Technical Structure & Price Action
-      </h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <TrendingUp size={17} style={{ color: 'var(--accent)' }} />
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Technical Structure, Moving Averages & Momentum
+            </h3>
+          </div>
+          {tech?.trend && (
+            <span
+              style={{
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                color:
+                  String(tech.trend).toLowerCase().includes('bull')
+                    ? 'var(--positive)'
+                    : String(tech.trend).toLowerCase().includes('bear')
+                    ? 'var(--negative)'
+                    : 'var(--warning)',
+              }}
+            >
+              Primary Trend: {tech.trend}
+            </span>
+          )}
+        </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-          <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week High</span>
-          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.high52W ? `₹${formatNumber(tech.high52W)}` : 'N/A'}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>Spot Price</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{price ? `₹${formatNumber(price)}` : 'N/A'}</p>
+          </div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week High</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{high52 ? `₹${formatNumber(high52)}` : 'N/A'}</p>
+          </div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week Low</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{low52 ? `₹${formatNumber(low52)}` : 'N/A'}</p>
+          </div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>50-Day SMA</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma50 ? `₹${formatNumber(tech.sma50)}` : 'N/A'}</p>
+          </div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>200-Day SMA</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma200 ? `₹${formatNumber(tech.sma200)}` : 'N/A'}</p>
+          </div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+            <span className="metric-label" style={{ fontSize: '0.72rem' }}>RSI (14-Day)</span>
+            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.rsi ? formatNumber(tech.rsi) : 'Neutral Band'}</p>
+          </div>
         </div>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-          <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week Low</span>
-          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.low52W ? `₹${formatNumber(tech.low52W)}` : 'N/A'}</p>
-        </div>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-          <span className="metric-label" style={{ fontSize: '0.72rem' }}>50-Day SMA</span>
-          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma50 ? `₹${formatNumber(tech.sma50)}` : 'N/A'}</p>
-        </div>
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-          <span className="metric-label" style={{ fontSize: '0.72rem' }}>200-Day SMA</span>
-          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma200 ? `₹${formatNumber(tech.sma200)}` : 'N/A'}</p>
-        </div>
+
+        {(tech?.supportLevels?.length || tech?.resistanceLevels?.length) ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
+            {tech.supportLevels && tech.supportLevels.length > 0 && (
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.9rem 1rem' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--positive)', display: 'block', marginBottom: '0.35rem' }}>
+                  Key Support Zones
+                </span>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  {tech.supportLevels.join('  ·  ')}
+                </p>
+              </div>
+            )}
+            {tech.resistanceLevels && tech.resistanceLevels.length > 0 && (
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.9rem 1rem' }}>
+                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--negative)', display: 'block', marginBottom: '0.35rem' }}>
+                  Key Resistance Zones
+                </span>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  {tech.resistanceLevels.join('  ·  ')}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {tech?.momentumSignal && (
+          <p style={{ fontSize: '0.84rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.75rem' }}>
+            Momentum Signal: {tech.momentumSignal}
+          </p>
+        )}
+
+        {tech?.observations && (
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65, padding: '0.95rem', background: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            {tech.observations}
+          </p>
+        )}
       </div>
-
-      {tech?.observations && (
-        <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6, padding: '0.85rem', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
-          {tech.observations}
-        </p>
-      )}
     </div>
   );
 }

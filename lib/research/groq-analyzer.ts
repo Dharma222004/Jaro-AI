@@ -2,13 +2,14 @@ import type { CompanyIdentity } from '@/types/company';
 import type {
   ResearchReport,
   ResearchSourceMeta,
-  BusinessSegment,
   DevelopmentItem,
   RiskItem,
   CommentaryItem,
+  AnalystVerdict,
 } from '@/types/research';
 import type { ValidationOutput } from './validator-engine';
 import { analyzeWithGroq } from './groq-runner';
+import { isGeminiConfigured, analyzeWithGemini } from '@/lib/gemini/client';
 
 export async function generateInstitutionalAnalysis(params: {
   company: CompanyIdentity;
@@ -35,7 +36,6 @@ export async function generateInstitutionalAnalysis(params: {
 
   const { validatedMetrics, dataQuality } = validationOutput;
 
-  // Build condensed, high-density evidence for Groq
   const metricsSummary = `
 - Company: ${company.name} (${company.exchange}: ${company.ticker})
 - Sector: ${company.sector ?? 'N/A'}, Industry: ${company.industry ?? 'N/A'}
@@ -55,125 +55,209 @@ export async function generateInstitutionalAnalysis(params: {
 - Shareholding: Promoter: ${validatedMetrics.promoterHolding?.value ?? 'N/A'}%, FII: ${validatedMetrics.fiiHolding?.value ?? 'N/A'}%, DII: ${validatedMetrics.diiHolding?.value ?? 'N/A'}%, Public: ${validatedMetrics.publicHolding?.value ?? 'N/A'}%, Pledged: ${validatedMetrics.pledgedHolding?.value ?? 0}%
   `.trim();
 
-  // Source index reference
   const sourcesIndex = sources
-    .slice(0, 10)
+    .slice(0, 12)
     .map((s) => `[${s.id}] ${s.title} (${s.domain}) - ${s.sourceType}`)
     .join('\n');
 
-  const systemPrompt = `You are Jaro AI, an institutional equity research analyst specializing in Indian listed companies.
-Your role is to synthesize the provided financial metrics and qualitative disclosures into a structured, evidence-based research report.
+  const systemPrompt = `You are Jaro AI, a Senior Institutional Equity Research Analyst specializing in Indian & global listed companies.
+Your role is to perform deep stock research combining:
+1. Fundamental Valuation & Quality (ROE, ROCE, P/E, P/B, EV/EBITDA, Revenue/PAT trajectory, Balance Sheet & Cash Flows)
+2. Institutional Analyst Verdict & Recommendation Framework (Consensus stance, conviction score 0-100, valuation comfort, bull case vs bear case, and a 6-factor fundamental scorecard)
+3. Technical Structure & Price Action (50-DMA, 200-DMA, RSI, support & resistance zones, momentum signal, and trend)
+4. Latest Corporate News, Order Book, Quarterly Concall Highlights & Categorized Risks
+5. Simultaneous ChatGPT-style Direct Analyst Briefing ("initialChatbotReply") that directly answers the user's exact query ("${query}") in rich Markdown (with tables, bullet points, fundamental & technical breakdown, latest news, and clear analytical synthesis).
 
 STRICT PRINCIPLES:
-1. Ground every claim strictly in the provided evidence. Never fabricate numbers, facts, sources, or events.
-2. Maintain an institutional, objective tone. Do NOT provide generic "Strong Buy / Hold / Sell" advice.
-3. Clearly distinguish reported facts from analytical synthesis. Never treat management projections as guaranteed outcomes.
-4. QUOTATION GUARDRAIL: Only use direct quotation marks when the retrieved source contains the actual statement. Otherwise use: "Management indicated that...". Never invent quotes.
-5. Categorize risks specifically into: Business Risk, Industry Risk, Commodity Risk, Regulatory Risk, Financial Risk, Execution Risk, Competitive Risk. Each must include whyItMatters and concrete evidence.
-6. Separate Current Growth Drivers from Potential Future Catalysts.
-7. Provide a 5 to 8 sentence Executive Research Summary covering: business model, current earnings trajectory, key growth drivers, balance sheet posture, valuation context, and main risks.
+- Ground every claim in verified web search evidence and filings.
+- If any fundamental or technical metric is missing from the pre-extracted summary, fill it in from your live Google Search results in the "extractedFinancialOverrides" and "technicalOverrides" fields!
+- Return ONLY a valid JSON object matching the exact schema requested.`;
 
-Return ONLY a valid JSON object matching the requested schema.`;
-
-  const userPrompt = `Research Query: "${query}"
+  const userPrompt = `User Query: "${query}"
 Company: ${company.name} (${company.exchange}: ${company.ticker})
 Date: ${generatedAt}
 
-=== VERIFIED FINANCIAL METRICS ===
+=== PRE-EXTRACTED FINANCIAL METRICS ===
 ${metricsSummary}
 
 === SEGMENT & BUSINESS EVIDENCE ===
-${segmentText.slice(0, 2000) || 'Diversified operations across core segments.'}
+${segmentText.slice(0, 2500) || 'Diversified operations across core segments.'}
 
-=== CORPORATE DEVELOPMENTS, CAPEX & ORDERS ===
-${newsText.slice(0, 2000) || 'Recent corporate initiatives and operational milestones.'}
+=== CORPORATE DEVELOPMENTS, CAPEX & LATEST NEWS ===
+${newsText.slice(0, 2500) || 'Recent corporate initiatives and operational milestones.'}
 
 === MANAGEMENT COMMENTARY & CONCALL ===
-${commentaryText.slice(0, 1500) || 'Management remarks from recent quarterly investor interactions.'}
+${commentaryText.slice(0, 1800) || 'Management remarks from recent quarterly investor interactions.'}
 
 === RISKS & CHALLENGES ===
-${riskText.slice(0, 1500) || 'Sector headwinds, raw material price fluctuations, and regulatory compliance.'}
+${riskText.slice(0, 1800) || 'Sector headwinds, raw material price fluctuations, and regulatory compliance.'}
 
 === AVAILABLE SOURCES ===
 ${sourcesIndex}
 
-Generate the institutional equity analysis JSON with this exact schema:
+Return ONLY valid JSON matching this schema:
 {
-  "description": "2-3 sentence overview of business and core operations",
-  "businessModel": "Clear explanation of revenue generation mechanics and monetization",
-  "products": ["Key product 1", "Key product 2", "Key product 3"],
+  "description": "2-3 sentence institutional overview of business and market position",
+  "businessModel": "Detailed explanation of revenue generation mechanics, pricing power, and monetization",
+  "products": ["Key product/service 1", "Key product/service 2", "Key product/service 3"],
   "segments": [
-    { "name": "Segment Name", "description": "Activities", "revenueShare": "e.g. 45% or null" }
+    { "name": "Segment Name", "description": "Core activities and drivers", "revenueShare": "e.g. 48%" }
   ],
-  "geographies": ["India", "Global / Export markets"],
-  "executiveSummary": "5-8 sentence institutional synthesis of business, financial health, growth drivers, valuation, and risks",
-  "growthDrivers": ["Current structural driver 1", "Current structural driver 2"],
-  "futureCatalysts": ["Potential future catalyst 1", "Potential future catalyst 2"],
-  "strengths": ["Business strength 1", "Business strength 2", "Business strength 3"],
+  "geographies": ["India (Domestic)", "International / Exports"],
+  "executiveSummary": "6-8 sentence institutional synthesis covering business moat, latest quarterly earnings trajectory, return ratios (ROE/ROCE), balance sheet health, technical posture, valuation multiples, and key catalysts/risks",
+  "analystVerdict": {
+    "stance": "Bullish / Accumulate | Constructive / Outperform | Neutral / Hold | Cautious / Underperform",
+    "convictionScore": 82,
+    "valuationStatus": "Undervalued | Fairly Valued | Premium / Richly Valued",
+    "fairValueRange": "e.g. ₹1,450 – ₹1,620 (12M Institutional Consensus)",
+    "thesisSummary": "3-4 sentence core analyst recommendation thesis explaining why fundamentals, technicals, and catalysts support this stance",
+    "bullCase": ["Bull case catalyst 1 with numbers", "Bull case catalyst 2", "Bull case catalyst 3"],
+    "bearCase": ["Bear case risk 1 with impact", "Bear case risk 2", "Bear case risk 3"],
+    "fundamentalScorecard": [
+      { "factor": "Profitability & Return Ratios (ROE/ROCE)", "score": "Strong | Moderate | Weak", "verdict": "1-sentence justification" },
+      { "factor": "Earnings & Revenue Growth Visibility", "score": "Strong | Moderate | Weak", "verdict": "1-sentence justification" },
+      { "factor": "Balance Sheet & Leverage Profile", "score": "Strong | Moderate | Weak", "verdict": "1-sentence justification" },
+      { "factor": "Valuation Comfort (P/E, P/B, EV/EBITDA)", "score": "Attractive | Fair | Expensive", "verdict": "1-sentence justification" },
+      { "factor": "Technical Trend & Momentum", "score": "Bullish | Neutral | Bearish", "verdict": "1-sentence justification" },
+      { "factor": "Institutional & Promoter Ownership", "score": "Strong | Moderate | Weak", "verdict": "1-sentence justification" }
+    ]
+  },
+  "initialChatbotReply": "A comprehensive, ChatGPT-style Markdown response directly answering the user's query ('${query}'). Include: 1) Direct Executive Answer & Analyst Stance, 2) Markdown Table of Key Fundamentals & Valuation Multiples, 3) Technical Structure & Key Levels (Support/Resistance/DMA/RSI), 4) Latest News & Catalysts, and 5) Key Risks & Follow-up Prompts.",
+  "extractedFinancialOverrides": {
+    "marketCapCr": null,
+    "pe": null,
+    "pb": null,
+    "evEbitda": null,
+    "dividendYield": null,
+    "roe": null,
+    "roce": null,
+    "revenueCr": null,
+    "revenuePeriod": "Latest Quarter / TTM",
+    "revenueGrowthPct": null,
+    "ebitdaCr": null,
+    "ebitdaMarginPct": null,
+    "patCr": null,
+    "patGrowthPct": null,
+    "netMarginPct": null,
+    "eps": null,
+    "totalDebtCr": null,
+    "cashCr": null,
+    "debtToEquity": null,
+    "promoterPct": null,
+    "fiiPct": null,
+    "diiPct": null,
+    "publicPct": null
+  },
+  "technicalOverrides": {
+    "price": null,
+    "high52W": null,
+    "low52W": null,
+    "sma50": null,
+    "sma200": null,
+    "rsi": null,
+    "trend": "Bullish | Neutral | Bearish",
+    "momentumSignal": "e.g. Trading above 50-DMA & 200-DMA with neutral-to-positive RSI",
+    "supportLevels": ["₹...", "₹..."],
+    "resistanceLevels": ["₹...", "₹..."],
+    "observations": "3-4 sentence technical structure commentary covering moving averages, RSI momentum, 52-week range positioning, and key support/resistance zones"
+  },
+  "growthDrivers": ["Current structural driver 1", "Current structural driver 2", "Current structural driver 3"],
+  "futureCatalysts": ["Potential future catalyst 1", "Potential future catalyst 2", "Potential future catalyst 3"],
+  "strengths": ["Business strength 1", "Business strength 2", "Business strength 3", "Business strength 4"],
   "risks": [
     {
       "category": "Business Risk | Financial Risk | Industry Risk | Regulatory Risk | Execution Risk | Commodity Risk | Competitive Risk",
       "risk": "Short title",
-      "description": "Explanation",
-      "whyItMatters": "Financial / strategic impact",
-      "evidence": "Supporting context",
+      "description": "Detailed explanation",
+      "whyItMatters": "Financial / margin / strategic impact",
+      "evidence": "Supporting context from filings/news",
       "severity": "high | medium | low",
-      "sourceId": "e.g. src_1"
+      "sourceId": "src_1"
     }
   ],
   "managementCommentary": [
     {
-      "speaker": "Executive name or management",
-      "quote": "Key strategic statement or guidance",
-      "context": "Earnings call / annual report",
-      "date": "Period or year",
-      "sourceId": "e.g. src_2"
+      "speaker": "Management / Concall Guidance",
+      "quote": "Key strategic statement or guidance from recent earnings call / report",
+      "context": "Quarterly Earnings Call / Annual Report",
+      "date": "FY2025-26",
+      "sourceId": "src_2"
     }
   ],
   "recentDevelopments": [
     {
-      "headline": "Title of event",
+      "headline": "Title of event / news",
       "whatHappened": "Summary of development",
-      "whyItMatters": "Strategic implication",
-      "date": "Date or period",
-      "category": "Order Win | Expansion | Results | Acquisition | Regulatory",
-      "sourceId": "e.g. src_1"
+      "whyItMatters": "Strategic & financial implication",
+      "date": "Recent Quarter / 2025-2026",
+      "category": "Results | Order Win | Expansion | Acquisition | Regulatory",
+      "sourceId": "src_1"
     }
   ],
-  "balanceSheetAnalysis": "2-3 sentences on debt profile, leverage, and cash buffer",
-  "cashFlowAnalysis": "2-3 sentences on capital intensity, capex cycle, and cash generation"
+  "balanceSheetAnalysis": "2-3 sentences on debt profile, leverage, working capital, and cash buffer",
+  "cashFlowAnalysis": "2-3 sentences on operating cash flow conversion, capex intensity, and free cash flow generation"
 }`;
 
   let aiSynthesis: Record<string, any> = {};
-  try {
-    aiSynthesis = await analyzeWithGroq({ systemPrompt, userPrompt });
-  } catch (err) {
-    console.warn('[groq-analyzer] LLM synthesis failed, using fallback synthesis:', err);
-    aiSynthesis = {
-      description: `${company.name} (${company.exchange}: ${company.ticker}) is an Indian listed enterprise in the ${company.sector ?? 'equity market'} sector.`,
-      businessModel: `Generates revenue through primary commercial operations in ${company.industry ?? 'its core domain'}.`,
-      products: ['Core operations and services'],
-      segments: [{ name: 'Primary Business', description: 'Core operational activities' }],
-      geographies: ['Domestic (India)'],
-      executiveSummary: `${company.name} operates in the ${company.sector ?? 'Indian corporate'} sector. Financial ratios indicate reported revenue of ₹${validatedMetrics.revenue?.value ?? 'N/A'} Cr with operating margins reflecting current industry conditions. Key monitoring areas include capital allocation, debt management, and demand trends across primary markets.`,
-      growthDrivers: ['Industry expansion', 'Operational execution'],
-      strengths: ['Established market presence in India'],
-      risks: [
-        {
-          category: 'Industry Risk',
-          risk: 'Macroeconomic & Sector Headwinds',
-          description: 'Exposure to cyclical industry demand and input cost volatility.',
-          whyItMatters: 'Can impact margin stability and earnings predictability.',
-          severity: 'medium',
-        },
-      ],
-      managementCommentary: [],
-      recentDevelopments: [],
-    };
+  let extraGroundingSources: ResearchSourceMeta[] = [];
+
+  if (isGeminiConfigured()) {
+    try {
+      const geminiOut = await analyzeWithGemini({
+        systemPrompt,
+        userPrompt,
+        useSearchGrounding: true,
+      });
+      aiSynthesis = geminiOut.data;
+      extraGroundingSources = geminiOut.groundingSources;
+    } catch (err) {
+      console.warn('[groq-analyzer] Gemini synthesis failed, trying Groq fallback:', err);
+    }
   }
 
-  // Map report sources into schema-compliant ReportSource[]
-  const mappedSources = sources.map((s, idx) => ({
+  if (!aiSynthesis || Object.keys(aiSynthesis).length === 0) {
+    try {
+      aiSynthesis = await analyzeWithGroq({ systemPrompt, userPrompt });
+    } catch (err) {
+      console.warn('[groq-analyzer] Groq synthesis also failed, using structured fallback:', err);
+      aiSynthesis = {
+        description: `${company.name} (${company.exchange}: ${company.ticker}) is a prominent listed enterprise in the ${company.sector ?? 'Indian equity'} sector.`,
+        businessModel: `Generates revenue through primary commercial operations in ${company.industry ?? 'its core industry'}.`,
+        products: ['Core products and institutional services'],
+        segments: [{ name: 'Core Business Segment', description: 'Primary revenue-generating operations' }],
+        geographies: ['India (Domestic)', 'Global Markets'],
+        executiveSummary: `${company.name} operates as an established player in the ${company.sector ?? 'Indian corporate'} sector. Financial disclosures indicate a focus on operational efficiency, capital allocation discipline, and market share expansion across core segments.`,
+        growthDrivers: ['Sectoral demand tailwinds', 'Operating leverage and capacity expansion'],
+        strengths: ['Established market presence', 'Institutional coverage on NSE/BSE'],
+        risks: [
+          {
+            category: 'Industry Risk',
+            risk: 'Macroeconomic & Input Cost Volatility',
+            description: 'Exposure to cyclical demand shifts and raw material cost fluctuations.',
+            whyItMatters: 'Can impact operating margin stability and near-term earnings visibility.',
+            severity: 'medium',
+          },
+        ],
+        managementCommentary: [],
+        recentDevelopments: [],
+      };
+    }
+  }
+
+  // Merge sources (deduplicated by URL)
+  const combinedSourcesList: ResearchSourceMeta[] = [...sources];
+  const seenUrls = new Set(sources.map((s) => s.url));
+  for (const gs of extraGroundingSources) {
+    if (!seenUrls.has(gs.url) && combinedSourcesList.length < 20) {
+      seenUrls.add(gs.url);
+      combinedSourcesList.push({
+        ...gs,
+        id: `src_${combinedSourcesList.length + 1}`,
+      });
+    }
+  }
+
+  const mappedSources = combinedSourcesList.map((s, idx) => ({
     id: s.id ?? `src_${idx + 1}`,
     url: s.url,
     title: s.title,
@@ -183,7 +267,29 @@ Generate the institutional equity analysis JSON with this exact schema:
     publishedAt: s.publishedAt ?? null,
   }));
 
-  // Map developments to ensure all fields are populated
+  const ov = aiSynthesis.extractedFinancialOverrides || {};
+  const toMetric = (
+    existing: ResearchReport['financials']['revenue'] | undefined,
+    overrideVal: number | string | null | undefined,
+    unit: string,
+    period: string | null = ov.revenuePeriod || 'Latest'
+  ) => {
+    if (existing && existing.value !== null && existing.value !== undefined && existing.value !== '') {
+      return existing;
+    }
+    if (overrideVal !== null && overrideVal !== undefined && overrideVal !== '') {
+      return {
+        value: overrideVal,
+        unit,
+        period,
+        basis: validatedMetrics.basis,
+        sourceId: mappedSources[0]?.id ?? 'src_1',
+        metricType: 'reported' as const,
+      };
+    }
+    return existing ?? { value: null, unit, period, basis: validatedMetrics.basis };
+  };
+
   const recentDevelopments: DevelopmentItem[] = Array.isArray(aiSynthesis.recentDevelopments)
     ? aiSynthesis.recentDevelopments.map((d: any) => ({
         headline: d.headline || 'Corporate Update',
@@ -196,7 +302,6 @@ Generate the institutional equity analysis JSON with this exact schema:
       }))
     : [];
 
-  // Map risks to ensure all fields are populated
   const risks: RiskItem[] = Array.isArray(aiSynthesis.risks)
     ? aiSynthesis.risks.map((r: any) => ({
         category: r.category || 'Business Risk',
@@ -205,22 +310,64 @@ Generate the institutional equity analysis JSON with this exact schema:
         whyItMatters: r.whyItMatters || '',
         evidence: r.evidence || '',
         severity: (['high', 'medium', 'low'].includes(r.severity) ? r.severity : 'medium') as 'high' | 'medium' | 'low',
-        sourceId: r.sourceId || null,
+        sourceId: r.sourceId || mappedSources[0]?.id || null,
       }))
     : [];
 
-  // Map management commentary
   const managementCommentary: CommentaryItem[] = Array.isArray(aiSynthesis.managementCommentary)
     ? aiSynthesis.managementCommentary.map((c: any) => ({
         speaker: c.speaker || 'Management',
         quote: c.quote || '',
         context: c.context || 'Investor Disclosure',
         date: c.date || null,
-        sourceId: c.sourceId || null,
+        sourceId: c.sourceId || mappedSources[0]?.id || null,
       }))
     : [];
 
-  // Assemble full institutional ResearchReport
+  const tov = aiSynthesis.technicalOverrides || {};
+  const mergedTechnical = {
+    price: validatedMetrics.technical?.price ?? tov.price ?? null,
+    high52W: validatedMetrics.technical?.high52W ?? tov.high52W ?? null,
+    low52W: validatedMetrics.technical?.low52W ?? tov.low52W ?? null,
+    sma50: validatedMetrics.technical?.sma50 ?? tov.sma50 ?? null,
+    sma200: validatedMetrics.technical?.sma200 ?? tov.sma200 ?? null,
+    rsi: validatedMetrics.technical?.rsi ?? tov.rsi ?? null,
+    trend: tov.trend || validatedMetrics.technical?.trend || 'Neutral',
+    momentumSignal: tov.momentumSignal || undefined,
+    supportLevels: Array.isArray(tov.supportLevels) ? tov.supportLevels : undefined,
+    resistanceLevels: Array.isArray(tov.resistanceLevels) ? tov.resistanceLevels : undefined,
+    observations: tov.observations || validatedMetrics.technical?.observations || undefined,
+  };
+
+  const av = aiSynthesis.analystVerdict;
+  const analystVerdict: AnalystVerdict | undefined = av
+    ? {
+        stance: av.stance || 'Neutral / Hold',
+        convictionScore: typeof av.convictionScore === 'number' ? av.convictionScore : 75,
+        valuationStatus: av.valuationStatus || 'Fairly Valued',
+        fairValueRange: av.fairValueRange || null,
+        thesisSummary: av.thesisSummary || aiSynthesis.executiveSummary || '',
+        bullCase: Array.isArray(av.bullCase) ? av.bullCase : [],
+        bearCase: Array.isArray(av.bearCase) ? av.bearCase : [],
+        fundamentalScorecard: Array.isArray(av.fundamentalScorecard) ? av.fundamentalScorecard : [],
+      }
+    : undefined;
+
+  const defaultChatReply = `### Institutional Analyst Briefing: **${company.name}** (${company.exchange}: \`${company.ticker}\`)
+
+${aiSynthesis.executiveSummary || `${company.name} operates in the ${company.sector ?? 'Indian equity'} sector.`}
+
+${
+  analystVerdict
+    ? `#### Analyst Verdict & Thesis
+- **Institutional Stance:** **${analystVerdict.stance}** ${analystVerdict.convictionScore ? `(Conviction Score: **${analystVerdict.convictionScore}/100**)` : ''}
+- **Valuation Posture:** ${analystVerdict.valuationStatus || 'Reviewed against sector peers'} ${analystVerdict.fairValueRange ? `· **Reference Range:** ${analystVerdict.fairValueRange}` : ''}
+- **Core Thesis:** ${analystVerdict.thesisSummary}`
+    : ''
+}
+
+You can explore the **8-Tab Institutional Dossier** alongside this chat or ask me any follow-up questions about **${company.name}**'s fundamentals, balance sheet, technical support/resistance levels, peer comparisons, or latest news.`;
+
   const report: ResearchReport = {
     company: {
       name: company.name,
@@ -230,7 +377,7 @@ Generate the institutional equity analysis JSON with this exact schema:
       sector: company.sector ?? 'General',
       industry: company.industry ?? 'Equity',
       description: aiSynthesis.description || `${company.name} is a leading Indian listed company.`,
-      marketCap: validatedMetrics.marketCap,
+      marketCap: toMetric(validatedMetrics.marketCap, ov.marketCapCr, 'Cr', 'Live'),
     },
     business: {
       businessModel: aiSynthesis.businessModel || 'Monetization through core products and services.',
@@ -239,37 +386,44 @@ Generate the institutional equity analysis JSON with this exact schema:
       geographies: Array.isArray(aiSynthesis.geographies) ? aiSynthesis.geographies : ['India'],
     },
     financials: {
-      revenue: validatedMetrics.revenue ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      ebitda: validatedMetrics.ebitda ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      profit: validatedMetrics.netProfit ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      eps: validatedMetrics.eps ?? { value: null, unit: '₹', period: null, basis: validatedMetrics.basis },
-      debt: validatedMetrics.totalDebt ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      cash: validatedMetrics.cash ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      cashFlow: { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis, note: 'Detailed cash flow statement not fully disclosed in quarterly summary.' },
-      revenueGrowth: validatedMetrics.revenueGrowth,
-      profitGrowth: validatedMetrics.profitGrowth,
+      revenue: toMetric(validatedMetrics.revenue, ov.revenueCr, 'Cr'),
+      ebitda: toMetric(validatedMetrics.ebitda, ov.ebitdaCr, 'Cr'),
+      profit: toMetric(validatedMetrics.netProfit, ov.patCr, 'Cr'),
+      eps: toMetric(validatedMetrics.eps, ov.eps, '₹'),
+      debt: toMetric(validatedMetrics.totalDebt, ov.totalDebtCr, 'Cr'),
+      cash: toMetric(validatedMetrics.cash, ov.cashCr, 'Cr'),
+      cashFlow: {
+        value: null,
+        unit: '₹ Cr',
+        period: null,
+        basis: validatedMetrics.basis,
+        note: aiSynthesis.cashFlowAnalysis || 'Operating cash flows tracked via annual filings.',
+      },
+      revenueGrowth: toMetric(validatedMetrics.revenueGrowth, ov.revenueGrowthPct, '%'),
+      profitGrowth: toMetric(validatedMetrics.profitGrowth, ov.patGrowthPct, '%'),
       netDebt: validatedMetrics.netDebt,
-      debtToEquity: validatedMetrics.debtToEquity,
+      debtToEquity: toMetric(validatedMetrics.debtToEquity, ov.debtToEquity, 'x'),
     },
     profitability: {
-      roe: validatedMetrics.roe ?? { value: null, unit: '%', period: null, basis: validatedMetrics.basis },
-      roce: validatedMetrics.roce ?? { value: null, unit: '%', period: null, basis: validatedMetrics.basis },
-      netMargin: validatedMetrics.netMargin ?? { value: null, unit: '%', period: null, basis: validatedMetrics.basis },
-      ebitdaMargin: validatedMetrics.ebitdaMargin,
+      roe: toMetric(validatedMetrics.roe, ov.roe, '%', 'FY25/TTM'),
+      roce: toMetric(validatedMetrics.roce, ov.roce, '%', 'FY25/TTM'),
+      netMargin: toMetric(validatedMetrics.netMargin, ov.netMarginPct, '%'),
+      ebitdaMargin: toMetric(validatedMetrics.ebitdaMargin, ov.ebitdaMarginPct, '%'),
     },
     valuation: {
-      pe: validatedMetrics.pe ?? { value: null, unit: 'x', period: null, basis: validatedMetrics.basis },
-      pb: validatedMetrics.pb ?? { value: null, unit: 'x', period: null, basis: validatedMetrics.basis },
-      marketCap: validatedMetrics.marketCap ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      dividendYield: validatedMetrics.dividendYield,
+      pe: toMetric(validatedMetrics.pe, ov.pe, 'x', 'TTM'),
+      pb: toMetric(validatedMetrics.pb, ov.pb, 'x', 'TTM'),
+      marketCap: toMetric(validatedMetrics.marketCap, ov.marketCapCr, 'Cr', 'Live'),
+      evEbitda: toMetric(validatedMetrics.evEbitda, ov.evEbitda, 'x', 'TTM'),
+      dividendYield: toMetric(validatedMetrics.dividendYield, ov.dividendYield, '%', 'TTM'),
     },
     shareholding: {
-      promoter: validatedMetrics.promoterHolding ?? { value: null, unit: '%', period: null },
-      fii: validatedMetrics.fiiHolding ?? { value: null, unit: '%', period: null },
-      dii: validatedMetrics.diiHolding ?? { value: null, unit: '%', period: null },
-      public: validatedMetrics.publicHolding ?? { value: null, unit: '%', period: null },
-      pledged: validatedMetrics.pledgedHolding ?? { value: 0, unit: '%', period: null },
-      asOfDate: validatedMetrics.shareholdingAsOf ?? null,
+      promoter: toMetric(validatedMetrics.promoterHolding, ov.promoterPct, '%', 'Latest'),
+      fii: toMetric(validatedMetrics.fiiHolding, ov.fiiPct, '%', 'Latest'),
+      dii: toMetric(validatedMetrics.diiHolding, ov.diiPct, '%', 'Latest'),
+      public: toMetric(validatedMetrics.publicHolding, ov.publicPct, '%', 'Latest'),
+      pledged: validatedMetrics.pledgedHolding ?? { value: 0, unit: '%', period: 'Latest' },
+      asOfDate: validatedMetrics.shareholdingAsOf ?? 'Latest Filing',
     },
     balanceSheetAnalysis: aiSynthesis.balanceSheetAnalysis || undefined,
     cashFlowAnalysis: aiSynthesis.cashFlowAnalysis || undefined,
@@ -280,8 +434,18 @@ Generate the institutional equity analysis JSON with this exact schema:
     strengths: Array.isArray(aiSynthesis.strengths) ? aiSynthesis.strengths : [],
     risks,
     managementCommentary,
-    technicalAnalysis: validatedMetrics.technical,
-    dataQuality,
+    technicalAnalysis: mergedTechnical,
+    analystVerdict,
+    initialChatbotReply:
+      typeof aiSynthesis.initialChatbotReply === 'string' && aiSynthesis.initialChatbotReply.trim().length > 20
+        ? aiSynthesis.initialChatbotReply
+        : defaultChatReply,
+    dataQuality: {
+      ...dataQuality,
+      primarySourcesCount: Math.max(dataQuality.primarySourcesCount, mappedSources.filter((s) => s.authority === 'high').length),
+      secondarySourcesCount: Math.max(dataQuality.secondarySourcesCount, mappedSources.filter((s) => s.authority !== 'high').length),
+      overallConfidence: mappedSources.length >= 4 ? 'High' : dataQuality.overallConfidence,
+    },
     researchSummary: aiSynthesis.executiveSummary || `${company.name} fundamental research synthesis.`,
     sources: mappedSources,
     generatedAt,

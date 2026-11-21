@@ -755,7 +755,6 @@ const CURATED_INDIAN_COMPANIES: Record<string, CuratedCompany> = {
   },
 };
 
-// Common ambiguous prefixes that must prompt disambiguation
 const AMBIGUOUS_CLUSTERS: Record<string, CompanyCandidate[]> = {
   nrb: [
     {

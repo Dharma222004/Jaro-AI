@@ -1,0 +1,8 @@
+{
+  "name": "Jaro AI — AI-Powered Stock Research",
+  "description": "Research Indian stocks using AI-powered analysis, current web information, financial documents, and structured research reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

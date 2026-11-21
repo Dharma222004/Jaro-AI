@@ -139,7 +139,7 @@ export async function runResearchPipeline(params: {
     notify('web_research', 'running', 'Searching Screener, BSE/NSE filings, investor presentations, and financial press');
     let webData;
     try {
-      webData = await collectMultiSourceData(company, (msg) => notify('web_research', 'running', msg));
+      webData = await collectMultiSourceData(company, (msg) => notify('web_research', 'running', msg), query);
       notify('web_research', 'completed', `Retrieved and prioritized ${webData.sources.length} financial sources`);
     } catch (err) {
       notify('web_research', 'failed');
@@ -415,6 +415,16 @@ export async function runResearchPipeline(params: {
     const validatedReport = safeValidation.data;
     notify('report_validation', 'completed');
 
+    const finalSources: ResearchSourceMeta[] = (validatedReport.sources ?? webData.sources).map((s, idx) => ({
+      id: s.id ?? `src_${idx + 1}`,
+      url: s.url,
+      title: s.title,
+      domain: s.domain,
+      sourceType: (s.sourceType as ResearchSourceMeta['sourceType']) ?? 'analysis',
+      authority: s.authority ?? 'medium',
+      retrievedAt: new Date().toISOString(),
+    }));
+
     // ── 9. Persist to DB (non-fatal) ──────────────────────────────────────────
     const processingMs = Date.now() - startTime;
     if (dbAvailable) {
@@ -426,7 +436,7 @@ export async function runResearchPipeline(params: {
             reportJson: JSON.stringify(validatedReport),
             processingMs,
           });
-          await db.saveResearchSources(reportId, webData.sources);
+          await db.saveResearchSources(reportId, finalSources);
         }
       } catch (saveErr) {
         console.warn('[research] DB save failed (non-fatal):', saveErr instanceof Error ? saveErr.message : saveErr);
@@ -438,7 +448,7 @@ export async function runResearchPipeline(params: {
       status: 'completed',
       company,
       report: validatedReport,
-      sources: webData.sources,
+      sources: finalSources,
       processingMs,
       fromCache: false,
     };

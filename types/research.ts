@@ -169,23 +169,6 @@ export interface TechnicalAnalysis {
   observations?: string;
 }
 
-export interface FundamentalScorecardItem {
-  factor: string;
-  score: string;
-  verdict: string;
-}
-
-export interface AnalystVerdict {
-  stance: string;
-  convictionScore?: number | null;
-  valuationStatus?: string;
-  fairValueRange?: string | null;
-  thesisSummary: string;
-  bullCase: string[];
-  bearCase: string[];
-  fundamentalScorecard?: FundamentalScorecardItem[];
-}
-
 export interface ReportSource {
   id: string;
   url: string;
@@ -324,8 +307,6 @@ export interface ResearchReport {
   risks: RiskItem[];
   managementCommentary: CommentaryItem[];
   technicalAnalysis?: TechnicalAnalysis;
-  analystVerdict?: AnalystVerdict;
-  initialChatbotReply?: string;
   dataQuality?: DataQualityReport;
   researchSummary: string;
   sources: ReportSource[];

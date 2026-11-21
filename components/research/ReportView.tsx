@@ -17,10 +17,6 @@ import {
   Activity,
   Printer,
   CheckCircle2,
-  MessageSquare,
-  Columns,
-  TrendingUp,
-  Target,
 } from 'lucide-react';
 import type {
   ResearchReport,
@@ -30,7 +26,6 @@ import type {
 } from '@/types/research';
 import { formatDate, formatNumber } from '@/lib/formatting/numbers';
 import { LiveMarketPanel } from './LiveMarketPanel';
-import { ResearchChatDrawer } from './ResearchChatDrawer';
 
 interface ReportViewProps {
   report: ResearchReport;
@@ -56,7 +51,6 @@ export function ReportView({
   onRefresh,
 }: ReportViewProps) {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [workspaceMode, setWorkspaceMode] = useState<'split' | 'report' | 'chat'>('split');
   const [isAddingToWatchlist, setIsAddingToWatchlist] = useState(false);
   const [inWatchlist, setInWatchlist] = useState(false);
 
@@ -226,212 +220,104 @@ export function ReportView({
           />
         </div>
 
-        <div
+        {/* Clean Segmented Pill Navigation */}
+        <nav
+          className="report-tab-nav"
           style={{
-            display: 'inline-flex',
+            display: 'flex',
             alignItems: 'center',
-            gap: '0.25rem',
-            padding: '0.2rem',
-            background: 'var(--bg-elevated)',
+            gap: '0.35rem',
+            overflowX: 'auto',
+            padding: '0.4rem',
+            background: 'var(--bg-surface)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: '8px',
+            borderRadius: '10px',
+            margin: '1.75rem 0 1.5rem',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
-          <button
-            onClick={() => setWorkspaceMode('split')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.76rem',
-              fontWeight: workspaceMode === 'split' ? 700 : 500,
-              background: workspaceMode === 'split' ? 'var(--bg-surface)' : 'transparent',
-              color: workspaceMode === 'split' ? 'var(--text-primary)' : 'var(--text-muted)',
-              border: workspaceMode === 'split' ? '1px solid var(--border-default)' : '1px solid transparent',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Columns size={13} style={{ color: workspaceMode === 'split' ? 'var(--accent)' : 'var(--text-muted)' }} />
-            <span>Report + Analyst Chat</span>
-          </button>
-
-          <button
-            onClick={() => setWorkspaceMode('report')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.76rem',
-              fontWeight: workspaceMode === 'report' ? 700 : 500,
-              background: workspaceMode === 'report' ? 'var(--bg-surface)' : 'transparent',
-              color: workspaceMode === 'report' ? 'var(--text-primary)' : 'var(--text-muted)',
-              border: workspaceMode === 'report' ? '1px solid var(--border-default)' : '1px solid transparent',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <FileText size={13} style={{ color: workspaceMode === 'report' ? 'var(--accent)' : 'var(--text-muted)' }} />
-            <span>Full Report Only</span>
-          </button>
-
-          <button
-            onClick={() => setWorkspaceMode('chat')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.76rem',
-              fontWeight: workspaceMode === 'chat' ? 700 : 500,
-              background: workspaceMode === 'chat' ? 'var(--bg-surface)' : 'transparent',
-              color: workspaceMode === 'chat' ? 'var(--text-primary)' : 'var(--text-muted)',
-              border: workspaceMode === 'chat' ? '1px solid var(--border-default)' : '1px solid transparent',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <MessageSquare size={13} style={{ color: workspaceMode === 'chat' ? 'var(--accent)' : 'var(--text-muted)' }} />
-            <span>Full Analyst Chat</span>
-          </button>
-        </div>
-      </div>
-
-      {workspaceMode === 'chat' ? (
-        <div style={{ padding: '1rem 1.5rem' }}>
-          <ResearchChatDrawer
-            report={report}
-            mode="full"
-            onClose={() => setWorkspaceMode('split')}
-          />
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: workspaceMode === 'split' ? 'minmax(0, 1.35fr) minmax(380px, 0.85fr)' : '1fr',
-            alignItems: 'start',
-          }}
-        >
-          {/* Main Report Column */}
-          <main
-            className="page-container"
-            style={{
-              maxWidth: workspaceMode === 'split' ? '100%' : '1080px',
-              margin: '0 auto',
-              padding: '1.75rem 1.5rem 4rem',
-              minWidth: 0,
-            }}
-          >
-            {/* Institutional Company Header */}
-            <CompanyHeaderCard report={report} />
-
-            {/* Live Yahoo Finance Market Data Panel */}
-            <div style={{ marginTop: '1rem' }}>
-              <LiveMarketPanel
-                ticker={report.company.ticker}
-                exchange={(report.company.exchange === 'BSE' ? 'BSE' : 'NSE') as 'NSE' | 'BSE'}
-              />
-            </div>
-
-            {/* Segmented Tab Navigation */}
-            <nav
-              className="report-tab-nav"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                overflowX: 'auto',
-                padding: '0.4rem',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
-                margin: '1.75rem 0 1.5rem',
-                scrollbarWidth: 'none',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className="report-tab-btn"
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="report-tab-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.55rem 0.95rem',
+                  borderRadius: '7px',
+                  fontSize: '0.84rem',
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                  background: isActive ? 'var(--bg-elevated)' : 'transparent',
+                  border: isActive ? '1px solid var(--border-default)' : '1px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.25)' : 'none',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                <span className="report-tab-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                  {tab.icon}
+                </span>
+                <span>{tab.label}</span>
+                {tab.id === 'audit' && report.dataQuality?.conflicts && report.dataQuality.conflicts.length > 0 && (
+                  <span
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.55rem 0.95rem',
-                      borderRadius: '7px',
-                      fontSize: '0.84rem',
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                      background: isActive ? 'var(--bg-elevated)' : 'transparent',
-                      border: isActive ? '1px solid var(--border-default)' : '1px solid transparent',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
+                      fontSize: '0.68rem',
+                      padding: '0.1rem 0.45rem',
+                      borderRadius: '10px',
+                      background: 'rgba(234, 179, 8, 0.15)',
+                      color: 'var(--warning)',
+                      fontWeight: 600,
                     }}
                   >
-                    <span className="report-tab-icon" style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                      {tab.icon}
-                    </span>
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+                    {report.dataQuality.conflicts.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-            {/* Tab Content Panels */}
-            {activeTab === 'overview' && (
-              <OverviewTab report={report} sourceMap={sourceMap} onTabChange={setActiveTab} />
-            )}
+        {/* Tab Content Panels */}
+        {activeTab === 'overview' && (
+          <OverviewTab report={report} sourceMap={sourceMap} onTabChange={setActiveTab} />
+        )}
 
-            {activeTab === 'financials' && (
-              <FinancialsTab report={report} sourceMap={sourceMap} />
-            )}
+        {activeTab === 'financials' && (
+          <FinancialsTab report={report} sourceMap={sourceMap} />
+        )}
 
-            {activeTab === 'business' && (
-              <BusinessTab report={report} />
-            )}
+        {activeTab === 'business' && (
+          <BusinessTab report={report} />
+        )}
 
-            {activeTab === 'valuation' && (
-              <ValuationTab report={report} sourceMap={sourceMap} />
-            )}
+        {activeTab === 'valuation' && (
+          <ValuationTab report={report} sourceMap={sourceMap} />
+        )}
 
-            {activeTab === 'developments' && (
-              <DevelopmentsTab report={report} sourceMap={sourceMap} />
-            )}
+        {activeTab === 'developments' && (
+          <DevelopmentsTab report={report} sourceMap={sourceMap} />
+        )}
 
-            {activeTab === 'risks' && (
-              <RisksTab report={report} sourceMap={sourceMap} />
-            )}
+        {activeTab === 'risks' && (
+          <RisksTab report={report} sourceMap={sourceMap} />
+        )}
 
-            {activeTab === 'technical' && (
-              <TechnicalTab report={report} />
-            )}
+        {activeTab === 'technical' && (
+          <TechnicalTab report={report} />
+        )}
 
-            {activeTab === 'audit' && (
-              <AuditTab report={report} />
-            )}
-          </main>
-
-          {/* Right Pane: Simultaneous AI Analyst Chat (Docked in Split Mode, Floating in Report Mode) */}
-          {workspaceMode === 'split' ? (
-            <ResearchChatDrawer
-              report={report}
-              mode="docked"
-              onClose={() => setWorkspaceMode('report')}
-            />
-          ) : (
-            <ResearchChatDrawer report={report} mode="floating" />
-          )}
-        </div>
-      )}
+        {activeTab === 'audit' && (
+          <AuditTab report={report} />
+        )}
+      </main>
     </div>
   );
 }
@@ -741,10 +627,10 @@ function OverviewTab({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ color: dq.overallConfidence === 'High' ? 'var(--positive)' : 'var(--warning)', fontWeight: 600 }}>
-                Data Confidence: {dq.overallConfidence}
+                ● Data Confidence: {dq.overallConfidence}
               </span>
               <span style={{ color: 'var(--text-muted)' }}>
-                · {dq.primarySourcesCount} primary & {dq.secondarySourcesCount} secondary sources audited
+                ({dq.primarySourcesCount} primary & {dq.secondarySourcesCount} secondary sources audited)
               </span>
             </div>
             <button
@@ -1858,7 +1744,7 @@ function DevelopmentsTab({
                   padding: '1rem',
                   borderRadius: '8px',
                   background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-subtle)',
+                  borderLeft: '3px solid var(--accent)',
                 }}
               >
                 <p style={{ fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.6, fontStyle: 'italic', marginBottom: '0.35rem' }}>
@@ -2016,114 +1902,37 @@ function RisksTab({
 
 function TechnicalTab({ report }: { report: ResearchReport }) {
   const tech = report.technicalAnalysis;
-  const [liveQuote, setLiveQuote] = useState<{ price?: number; high52w?: number; low52w?: number } | null>(null);
-
-  useEffect(() => {
-    const exchange = report.company.exchange === 'BSE' ? 'BSE' : 'NSE';
-    fetch(`/api/market/quote?ticker=${encodeURIComponent(report.company.ticker)}&exchange=${exchange}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d) setLiveQuote({ price: d.price, high52w: d.high52w, low52w: d.low52w });
-      })
-      .catch(() => {});
-  }, [report.company.ticker, report.company.exchange]);
-
-  const high52 = liveQuote?.high52w ?? tech?.high52W;
-  const low52 = liveQuote?.low52w ?? tech?.low52W;
-  const price = liveQuote?.price ?? tech?.price;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <TrendingUp size={17} style={{ color: 'var(--accent)' }} />
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Technical Structure, Moving Averages & Momentum
-            </h3>
-          </div>
-          {tech?.trend && (
-            <span
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color:
-                  String(tech.trend).toLowerCase().includes('bull')
-                    ? 'var(--positive)'
-                    : String(tech.trend).toLowerCase().includes('bear')
-                    ? 'var(--negative)'
-                    : 'var(--warning)',
-              }}
-            >
-              Primary Trend: {tech.trend}
-            </span>
-          )}
+    <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+        Technical Structure & Price Action
+      </h3>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+          <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week High</span>
+          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.high52W ? `₹${formatNumber(tech.high52W)}` : 'N/A'}</p>
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>Spot Price</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{price ? `₹${formatNumber(price)}` : 'N/A'}</p>
-          </div>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week High</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{high52 ? `₹${formatNumber(high52)}` : 'N/A'}</p>
-          </div>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week Low</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{low52 ? `₹${formatNumber(low52)}` : 'N/A'}</p>
-          </div>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>50-Day SMA</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma50 ? `₹${formatNumber(tech.sma50)}` : 'N/A'}</p>
-          </div>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>200-Day SMA</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma200 ? `₹${formatNumber(tech.sma200)}` : 'N/A'}</p>
-          </div>
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
-            <span className="metric-label" style={{ fontSize: '0.72rem' }}>RSI (14-Day)</span>
-            <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.rsi ? formatNumber(tech.rsi) : 'Neutral Band'}</p>
-          </div>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+          <span className="metric-label" style={{ fontSize: '0.72rem' }}>52-Week Low</span>
+          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.low52W ? `₹${formatNumber(tech.low52W)}` : 'N/A'}</p>
         </div>
-
-        {(tech?.supportLevels?.length || tech?.resistanceLevels?.length) ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
-            {tech.supportLevels && tech.supportLevels.length > 0 && (
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.9rem 1rem' }}>
-                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--positive)', display: 'block', marginBottom: '0.35rem' }}>
-                  Key Support Zones
-                </span>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  {tech.supportLevels.join('  ·  ')}
-                </p>
-              </div>
-            )}
-            {tech.resistanceLevels && tech.resistanceLevels.length > 0 && (
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.9rem 1rem' }}>
-                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--negative)', display: 'block', marginBottom: '0.35rem' }}>
-                  Key Resistance Zones
-                </span>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  {tech.resistanceLevels.join('  ·  ')}
-                </p>
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {tech?.momentumSignal && (
-          <p style={{ fontSize: '0.84rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.75rem' }}>
-            Momentum Signal: {tech.momentumSignal}
-          </p>
-        )}
-
-        {tech?.observations && (
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65, padding: '0.95rem', background: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-            {tech.observations}
-          </p>
-        )}
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+          <span className="metric-label" style={{ fontSize: '0.72rem' }}>50-Day SMA</span>
+          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma50 ? `₹${formatNumber(tech.sma50)}` : 'N/A'}</p>
+        </div>
+        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+          <span className="metric-label" style={{ fontSize: '0.72rem' }}>200-Day SMA</span>
+          <p className="metric-value" style={{ fontSize: '1.2rem' }}>{tech?.sma200 ? `₹${formatNumber(tech.sma200)}` : 'N/A'}</p>
+        </div>
       </div>
+
+      {tech?.observations && (
+        <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.6, padding: '0.85rem', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+          {tech.observations}
+        </p>
+      )}
     </div>
   );
 }

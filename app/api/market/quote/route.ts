@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLiveMarketData } from '@/lib/yahoo-finance/client';
+import { brokerAggregator } from '@/lib/broker/aggregator';
 
 /**
- * GET /api/market/quote?ticker=RELIANCE&exchange=NSE
+ * GET /api/market/quote?ticker=ITC&exchange=NSE
  *
- * Returns live market data for an NSE/BSE-listed company.
- * Uses yahoo-finance2 with smart ticker resolution (search fallback for mismatched tickers).
+ * Returns authentic multi-broker market data for an NSE/BSE-listed company.
+ * Priority: Broker Aggregator (Upstox -> Angel One -> m.Stock) with fundamental fallback.
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -17,12 +18,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await fetchLiveMarketData(ticker, exchange);
+    const [brokerQuote, fundamentalData] = await Promise.all([
+      brokerAggregator.getUnifiedQuote(ticker, exchange).catch(() => null),
+      fetchLiveMarketData(ticker, exchange).catch(() => null),
+    ]);
 
-    if (!data) {
+    if (!brokerQuote && !fundamentalData) {
       return NextResponse.json(
         {
-          error: `Could not resolve live data for "${ticker}" on ${exchange}. Tried direct lookup and Yahoo Finance search — ticker may be delisted or not yet indexed.`,
+          error: `Could not resolve market data for "${ticker}" on ${exchange}.`,
           ticker,
           exchange,
         },
@@ -30,10 +34,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Merge authentic broker quote with fundamental ratios
+    const data = {
+      ...(fundamentalData || {}),
+      price: brokerQuote?.lastPrice ?? fundamentalData?.price ?? null,
+      priceChange: brokerQuote?.change ?? fundamentalData?.priceChange ?? null,
+      priceChangePct: brokerQuote?.changePercent ?? fundamentalData?.priceChangePct ?? null,
+      open: brokerQuote?.open ?? fundamentalData?.open ?? null,
+      dayHigh: brokerQuote?.high ?? fundamentalData?.dayHigh ?? null,
+      dayLow: brokerQuote?.low ?? fundamentalData?.dayLow ?? null,
+      volume: brokerQuote?.volume ?? fundamentalData?.volume ?? null,
+      high52w: brokerQuote?.yearHigh ?? fundamentalData?.high52w ?? null,
+      low52w: brokerQuote?.yearLow ?? fundamentalData?.low52w ?? null,
+      fetchedAt: brokerQuote?.timestamp ?? fundamentalData?.fetchedAt ?? new Date().toISOString(),
+      dataSource: brokerQuote ? 'live_exchange' : 'fundamental_database',
+    };
+
     return NextResponse.json(data, {
       headers: {
-        // Cache for 5 minutes (Yahoo data can be 15-20 min delayed anyway)
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
       },
     });
   } catch (err) {

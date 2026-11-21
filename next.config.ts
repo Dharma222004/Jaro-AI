@@ -1,6 +1,15 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/dashboard',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
   // ── Vercel / Serverless compatibility ──────────────────────────────────────
   // These packages use native binaries and must NOT be bundled by webpack.
   serverExternalPackages: ['@prisma/client', '.prisma/client', 'yahoo-finance2'],

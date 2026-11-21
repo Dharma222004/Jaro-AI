@@ -17,12 +17,12 @@ export function DisambiguationModal({ query, candidates, onSelect, onCancel }: P
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: 'var(--bg-base)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '2rem 1.5rem',
+        padding: 'clamp(1rem, 4vw, 2rem)',
       }}
     >
       {/* Ambient glow */}
@@ -32,7 +32,7 @@ export function DisambiguationModal({ query, candidates, onSelect, onCancel }: P
           top: '20%',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '600px',
+          width: 'min(600px, 100vw)',
           height: '300px',
           background: 'radial-gradient(ellipse, rgba(37,99,235,0.12) 0%, transparent 70%)',
           pointerEvents: 'none',

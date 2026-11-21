@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   MessageSquare,
   Send,
@@ -37,44 +37,27 @@ const STARTER_QUESTIONS = [
   'Explain current valuation multiples & P/E positioning',
 ];
 
+function createWelcomeMessage(companyName: string, id = 'welcome'): ChatMessage {
+  return {
+    id,
+    role: 'assistant',
+    content: `Welcome to Jaro AI Institutional Chat. I have synthesized the audited regulatory filings, Screener financial statements, and concall disclosures for **${companyName}**.\n\nYou can click **"Generate Investment-Readiness Snapshot"** below or ask any specific doubt regarding their margins, debt profile, future catalysts, or valuation.`,
+    timestamp: new Date(0),
+  };
+}
+
 export function ResearchChatDrawer({ report }: Props) {
+  const company = report.company;
   const [isOpen, setIsOpen] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [createWelcomeMessage(company.name)]);
+  const [messageSequence, setMessageSequence] = useState(0);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const company = report.company;
-
-  // Auto-scroll on new tokens / messages
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !isMinimized) {
-      scrollToBottom();
-    }
-  }, [messages, isOpen, isMinimized, scrollToBottom]);
-
-  // Initial welcome message
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: `Welcome to Jaro AI Institutional Chat. I have synthesized the audited regulatory filings, Screener financial statements, and concall disclosures for **${company.name}**.\n\nYou can click **"Generate Investment-Readiness Snapshot"** below or ask any specific doubt regarding their margins, debt profile, future catalysts, or valuation.`,
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [company.name, messages.length]);
 
   // Extract comprehensive structured context from report
   const buildReportContext = useCallback(() => {
@@ -144,8 +127,11 @@ export function ResearchChatDrawer({ report }: Props) {
     const query = (textToSend || input).trim();
     if (!query || isStreaming) return;
 
+    const sequence = messageSequence + 1;
+    setMessageSequence(sequence);
+
     const userMessage: ChatMessage = {
-      id: `usr-${Date.now()}`,
+      id: `usr-${sequence}`,
       role: 'user',
       content: query,
       timestamp: new Date(),
@@ -156,7 +142,7 @@ export function ResearchChatDrawer({ report }: Props) {
     setInput('');
     setIsStreaming(true);
 
-    const assistantMsgId = `asst-${Date.now()}`;
+    const assistantMsgId = `asst-${sequence}`;
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
       role: 'assistant',
@@ -189,7 +175,6 @@ export function ResearchChatDrawer({ report }: Props) {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedContent = '';
 
       while (true) {
         const { value, done } = await reader.read();
@@ -206,20 +191,19 @@ export function ResearchChatDrawer({ report }: Props) {
             try {
               const parsed = JSON.parse(dataStr);
               if (parsed.delta) {
-                accumulatedContent += parsed.delta;
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMsgId
-                      ? { ...msg, content: accumulatedContent }
+                      ? { ...msg, content: msg.content + parsed.delta }
                       : msg
                   )
                 );
               } else if (parsed.error) {
-                accumulatedContent += `\n\n*Error: ${parsed.error}*`;
+                const errorContent = `\n\n*Error: ${parsed.error}*`;
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMsgId
-                      ? { ...msg, content: accumulatedContent }
+                      ? { ...msg, content: msg.content + errorContent }
                       : msg
                   )
                 );
@@ -255,10 +239,8 @@ export function ResearchChatDrawer({ report }: Props) {
   const handleResetChat = () => {
     setMessages([
       {
-        id: `welcome-${Date.now()}`,
-        role: 'assistant',
+        ...createWelcomeMessage(company.name, 'welcome-reset'),
         content: `Conversation reset. Ask any question or clarify doubts regarding **${company.name}**.`,
-        timestamp: new Date(),
       },
     ]);
   };
@@ -732,7 +714,6 @@ export function ResearchChatDrawer({ report }: Props) {
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Sticky Input Footer */}
@@ -811,110 +792,109 @@ export function ResearchChatDrawer({ report }: Props) {
  * Institutional GFM Markdown Renderer:
  * Handles Markdown tables, bold headers, dividers, bullet points & code snippets
  */
+function isMarkdownTableRow(line: string) {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && trimmed.endsWith('|');
+}
+
+function renderMarkdownTable(tableLines: string[], key: number) {
+  const parseCells = (line: string) =>
+    line
+      .split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+
+  const headers = parseCells(tableLines[0]);
+  const rows = tableLines.slice(2).map(parseCells);
+
+  return (
+    <div
+      key={`tbl-${key}`}
+      style={{
+        overflowX: 'auto',
+        margin: '0.85rem 0',
+        borderRadius: '8px',
+        border: '1px solid var(--border-default)',
+        background: 'var(--bg-surface)',
+        maxWidth: '100%',
+      }}
+    >
+      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+        <thead>
+          <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}>
+            {headers.map((header, headerIndex) => (
+              <th
+                key={headerIndex}
+                style={{
+                  padding: '0.6rem 0.85rem',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                {renderInlineMarkdown(header)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr
+              key={rowIndex}
+              style={{
+                borderBottom: rowIndex < rows.length - 1 ? '1px solid var(--border-default)' : 'none',
+                background: rowIndex % 2 === 1 ? 'rgba(255, 255, 255, 0.018)' : 'transparent',
+              }}
+            >
+              {row.map((cell, cellIndex) => (
+                <td
+                  key={cellIndex}
+                  style={{
+                    padding: '0.55rem 0.85rem',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.5,
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {renderInlineMarkdown(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function MarkdownRenderer({ content }: { content: string }) {
   if (!content) return null;
 
   const lines = content.split('\n');
   const blocks: React.ReactNode[] = [];
-  let tableBuffer: string[] = [];
 
-  const flushTable = (key: number) => {
-    if (tableBuffer.length === 0) return null;
-    const tableLines = [...tableBuffer];
-    tableBuffer = [];
-
-    // Table parsing: line 0 = headers, line 1 = delimiter, lines 2+ = rows
-    const headerLine = tableLines[0];
-    const dataLines = tableLines.slice(2);
-
-    const parseCells = (line: string) =>
-      line
-        .split('|')
-        .slice(1, -1)
-        .map((c) => c.trim());
-
-    const headers = parseCells(headerLine);
-    const rows = dataLines.map(parseCells);
-
-    return (
-      <div
-        key={`tbl-${key}`}
-        style={{
-          overflowX: 'auto',
-          margin: '0.85rem 0',
-          borderRadius: '8px',
-          border: '1px solid var(--border-default)',
-          background: 'var(--bg-surface)',
-          maxWidth: '100%',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-default)' }}>
-              {headers.map((h, hIdx) => (
-                <th
-                  key={hIdx}
-                  style={{
-                    padding: '0.6rem 0.85rem',
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  {renderInlineMarkdown(h)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rIdx) => (
-              <tr
-                key={rIdx}
-                style={{
-                  borderBottom: rIdx < rows.length - 1 ? '1px solid var(--border-default)' : 'none',
-                  background: rIdx % 2 === 1 ? 'rgba(255, 255, 255, 0.018)' : 'transparent',
-                }}
-              >
-                {row.map((cell, cIdx) => (
-                  <td
-                    key={cIdx}
-                    style={{
-                      padding: '0.55rem 0.85rem',
-                      color: 'var(--text-secondary)',
-                      lineHeight: 1.5,
-                      verticalAlign: 'top',
-                    }}
-                  >
-                    {renderInlineMarkdown(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     const trimmed = line.trim();
 
-    // Check if table row
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-      tableBuffer.push(trimmed);
+    if (isMarkdownTableRow(line)) {
+      const tableLines = [trimmed];
+      let tableEnd = index + 1;
+      while (tableEnd < lines.length && isMarkdownTableRow(lines[tableEnd])) {
+        tableLines.push(lines[tableEnd].trim());
+        tableEnd += 1;
+      }
+      blocks.push(renderMarkdownTable(tableLines, index));
+      index = tableEnd - 1;
       continue;
-    } else if (tableBuffer.length > 0) {
-      const rendered = flushTable(i);
-      if (rendered) blocks.push(rendered);
     }
 
     // Horizontal Rule / Divider
     if (trimmed === '---' || trimmed === '***') {
       blocks.push(
         <hr
-          key={`hr-${i}`}
+          key={`hr-${index}`}
           style={{
             border: 'none',
             height: '1px',
@@ -930,7 +910,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     if (trimmed.startsWith('### ')) {
       blocks.push(
         <h4
-          key={`h3-${i}`}
+          key={`h3-${index}`}
           style={{
             fontSize: '0.96rem',
             fontWeight: 700,
@@ -949,7 +929,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     if (trimmed.startsWith('## ')) {
       blocks.push(
         <h3
-          key={`h2-${i}`}
+          key={`h2-${index}`}
           style={{
             fontSize: '1.05rem',
             fontWeight: 800,
@@ -967,7 +947,7 @@ function MarkdownRenderer({ content }: { content: string }) {
     // Bullet items
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       blocks.push(
-        <div key={`li-${i}`} style={{ display: 'flex', gap: '0.5rem', margin: '0.25rem 0', alignItems: 'flex-start' }}>
+        <div key={`li-${index}`} style={{ display: 'flex', gap: '0.5rem', margin: '0.25rem 0', alignItems: 'flex-start' }}>
           <span style={{ color: 'var(--accent)', fontWeight: 700, lineHeight: 1.6 }}>•</span>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
             {renderInlineMarkdown(trimmed.slice(2))}
@@ -979,21 +959,16 @@ function MarkdownRenderer({ content }: { content: string }) {
 
     // Empty space
     if (trimmed.length === 0) {
-      blocks.push(<div key={`sp-${i}`} style={{ height: '0.4rem' }} />);
+      blocks.push(<div key={`sp-${index}`} style={{ height: '0.4rem' }} />);
       continue;
     }
 
     // Regular paragraphs
     blocks.push(
-      <p key={`p-${i}`} style={{ margin: '0.25rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+      <p key={`p-${index}`} style={{ margin: '0.25rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.6 }}>
         {renderInlineMarkdown(line)}
       </p>
     );
-  }
-
-  if (tableBuffer.length > 0) {
-    const rendered = flushTable(lines.length);
-    if (rendered) blocks.push(rendered);
   }
 
   return <div>{blocks}</div>;

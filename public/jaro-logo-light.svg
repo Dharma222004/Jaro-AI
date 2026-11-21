@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 184 48" role="img" aria-labelledby="title desc">
+  <title id="title">Jaro AI</title>
+  <desc id="desc">Jaro AI equity intelligence</desc>
+  <g transform="translate(4 4)">
+    <rect x="1" y="1" width="38" height="38" rx="11" fill="#2563EB"/>
+    <path d="M10.5 10.5h16v13.2c0 5.7-3.6 9-9.2 9-4 0-6.8-1.8-8.4-5" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m25.8 10.6 6.4-6.4m-1.1 0h1.1v1.1" fill="none" stroke="#DBEAFE" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="54" y="25" fill="#0F172A" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.6">Jaro <tspan fill="#2563EB">AI</tspan></text>
+  <text x="55" y="38" fill="#64748B" font-family="Inter, Arial, sans-serif" font-size="7.5" font-weight="600" letter-spacing="1.1">EQUITY INTELLIGENCE</text>
+</svg>

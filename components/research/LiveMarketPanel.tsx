@@ -65,16 +65,19 @@ export function LiveMarketPanel({ ticker, exchange, refreshInterval = 120 }: Liv
       setError(null);
       setLastUpdated(new Date());
     } catch {
-      setError('Unable to reach Yahoo Finance. Market data unavailable.');
+      setError('Market data currently unavailable.');
     } finally {
       setLoading(false);
       if (isManual) setIsRefreshing(false);
     }
   }, [ticker, exchange]);
 
-  // Initial fetch
+  // Initial fetch. Defer the request so the effect only schedules external work.
   useEffect(() => {
-    fetchData();
+    const timeoutId = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchData]);
 
   // Auto-refresh
@@ -102,7 +105,7 @@ export function LiveMarketPanel({ ticker, exchange, refreshInterval = 120 }: Liv
       >
         <Activity size={16} style={{ color: 'var(--accent)', animation: 'pulse 1.5s infinite' }} />
         <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          Fetching live market data for {ticker}.{exchange}…
+          Fetching latest available market data for {ticker}.{exchange}…
         </span>
       </div>
     );
@@ -124,7 +127,7 @@ export function LiveMarketPanel({ ticker, exchange, refreshInterval = 120 }: Liv
       >
         <WifiOff size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Live data unavailable — {error ?? 'Yahoo Finance did not return data for this ticker.'}
+          Market data unavailable — {error ?? 'Exchange feed did not return data for this ticker.'}
         </span>
         <button
           onClick={() => fetchData(true)}
@@ -206,7 +209,7 @@ export function LiveMarketPanel({ ticker, exchange, refreshInterval = 120 }: Liv
         <button
           onClick={() => fetchData(true)}
           disabled={isRefreshing}
-          title="Refresh live data"
+          title="Refresh latest available data"
           style={{
             background: 'none',
             border: 'none',
@@ -352,7 +355,7 @@ export function LiveMarketPanel({ ticker, exchange, refreshInterval = 120 }: Liv
       {/* Data source disclaimer */}
       <div style={{ padding: '0.45rem 1.25rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-          Data sourced via Yahoo Finance · May be delayed 15–20 min · Not for trading decisions
+          Official exchange market session data · Not for direct execution
         </span>
       </div>
     </div>

@@ -12,7 +12,7 @@ import type { CompanyIdentity } from '@/types/company';
 import type { ResearchSourceMeta } from '@/types/research';
 import { extractDomain } from '@/lib/formatting/numbers';
 
-// ── Multi-Key Tavily Client Pool with Automatic Failover ─────────────────────
+// ── Single Dedicated Tavily Client ──────────────────────────────────────────
 
 export interface TavilyKeyItem {
   key: string;
@@ -20,101 +20,53 @@ export interface TavilyKeyItem {
   client: ReturnType<typeof tavily>;
 }
 
-let keyPool: TavilyKeyItem[] = [];
-let currentKeyIdx = 0;
+let singleTavilyClient: ReturnType<typeof tavily> | null = null;
 
-function buildTavilyPool(): TavilyKeyItem[] {
-  // Dynamically collect all TAVILY_API_KEY, TAVILY_API_KEY_2 ... TAVILY_API_KEY_N env vars
-  const rawCandidateKeys: string[] = [];
-
-  // 1. Check numbered sequence 1..20
-  const numberedKeys = [
-    process.env.TAVILY_API_KEY,
-    process.env.TAVILY_API_KEY_2,
-    process.env.TAVILY_API_KEY_3,
-    process.env.TAVILY_API_KEY_4,
-    process.env.TAVILY_API_KEY_5,
-    process.env.TAVILY_API_KEY_6,
-    process.env.TAVILY_API_KEY_7,
-    process.env.TAVILY_API_KEY_8,
-    process.env.TAVILY_API_KEY_9,
-    process.env.TAVILY_API_KEY_10,
-  ];
-  for (const k of numberedKeys) {
-    if (k) rawCandidateKeys.push(k);
-  }
-
-  // 2. Scan all process.env keys matching TAVILY_API_KEY pattern
-  for (const [envKey, envVal] of Object.entries(process.env)) {
-    if (/^TAVILY_API_KEY(_\d+)?$/i.test(envKey) && envVal) {
-      // Support comma or newline-separated keys within a single env var
-      const parts = envVal.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
-      rawCandidateKeys.push(...parts);
-    }
-  }
-
-  const pool: TavilyKeyItem[] = [];
-  const seenKeys = new Set<string>();
-
-  for (const raw of rawCandidateKeys) {
-    const k = raw.trim();
-    if (k && !k.startsWith('your_') && !seenKeys.has(k)) {
-      seenKeys.add(k);
-      const masked = `${k.slice(0, 10)}...${k.slice(-4)}`;
-      pool.push({
-        key: k,
-        masked,
-        client: tavily({ apiKey: k }),
-      });
-    }
-  }
-
-  if (pool.length === 0) {
+function getTavilyClient(): ReturnType<typeof tavily> {
+  if (singleTavilyClient) return singleTavilyClient;
+  const key = process.env.TAVILY_API_KEY?.trim();
+  if (!key || key.startsWith('your_')) {
     throw new Error('No valid TAVILY_API_KEY configured. Please check .env.local');
   }
-
-  console.log(`[tavily] Initialized client pool with ${pool.length} key(s) for automatic fallback:`);
-  pool.forEach((item, idx) => {
-    console.log(`   [tavily key ${idx + 1}] ${item.masked}`);
-  });
-  return pool;
+  singleTavilyClient = tavily({ apiKey: key });
+  return singleTavilyClient;
 }
 
 export function getTavilyPool(): TavilyKeyItem[] {
-  if (keyPool.length === 0) {
-    keyPool = buildTavilyPool();
-  }
-  return keyPool;
+  const key = process.env.TAVILY_API_KEY?.trim() ?? '';
+  const masked = key ? `${key.slice(0, 10)}...${key.slice(-4)}` : 'unconfigured';
+  return [
+    {
+      key,
+      masked,
+      client: getTavilyClient(),
+    },
+  ];
 }
 
 export async function withTavilyFallback<T>(
   fn: (client: ReturnType<typeof tavily>, keyIndex: number, maskedKey: string) => Promise<T>
 ): Promise<T> {
-  const pool = getTavilyPool();
-  const maxAttempts = pool.length;
+  const client = getTavilyClient();
+  const rawKey = process.env.TAVILY_API_KEY?.trim() ?? '';
+  const masked = `${rawKey.slice(0, 10)}...${rawKey.slice(-4)}`;
+
   let lastError: unknown = null;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const activeIdx = (currentKeyIdx + attempt) % pool.length;
-    const current = pool[activeIdx];
-
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const result = await fn(current.client, activeIdx, current.masked);
-      currentKeyIdx = activeIdx; // Remember successful key
-      return result;
+      return await fn(client, 0, masked);
     } catch (err: unknown) {
       lastError = err;
       const errMsg = err instanceof Error ? err.message : String(err);
-      console.warn(
-        `[tavily] Key ${activeIdx + 1}/${pool.length} (${current.masked}) failed: ${errMsg}. Rotating to next key...`
-      );
-      currentKeyIdx = (activeIdx + 1) % pool.length;
+      if (attempt === 0) {
+        console.warn(`[tavily] Search attempt 1 failed (${errMsg}). Retrying once...`);
+        await new Promise((r) => setTimeout(r, 1000));
+        continue;
+      }
     }
   }
 
-  throw new Error(
-    `[tavily] All ${pool.length} Tavily API keys exhausted or failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
-  );
+  throw new Error(`[tavily] Tavily request failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
 export async function tavilySearchWithFallback(
@@ -126,11 +78,6 @@ export async function tavilySearchWithFallback(
 
 export async function tavilyExtractWithFallback(urls: string[]) {
   return withTavilyFallback((client) => client.extract(urls));
-}
-
-function getTavilyClient() {
-  const pool = getTavilyPool();
-  return pool[currentKeyIdx % pool.length].client;
 }
 
 // ── Source Authority ─────────────────────────────────────────────────────────
@@ -147,14 +94,6 @@ const MEDIUM_AUTHORITY_DOMAINS = [
   'cnbctv18.com', 'ndtvprofit.com', 'thehindubusinessline.com',
   'zeebiz.com', 'screener.in', 'tickertape.in', 'trendlyne.com',
   'valuepickr.com', 'capitalmind.in',
-];
-
-// Domains to include across all searches for better quality (Tavily best practice)
-const PREFERRED_DOMAINS = [
-  'screener.in', 'tickertape.in', 'trendlyne.com',
-  'bseindia.com', 'nseindia.com', 'moneycontrol.com',
-  'economictimes.indiatimes.com', 'livemint.com',
-  'businessstandard.com', 'financialexpress.com',
 ];
 
 function getAuthority(domain: string): 'high' | 'medium' | 'low' {
@@ -212,6 +151,8 @@ interface SearchPlan {
   /** Tavily time_range: "day" | "week" | "month" | "year" */
   timeRange?: 'day' | 'week' | 'month' | 'year';
   maxResults?: number;
+  /** Request raw page content for richer extraction */
+  includeRawContent?: boolean | 'text' | 'markdown';
 }
 
 function buildSearchPlan(company: CompanyIdentity): SearchPlan[] {
@@ -241,11 +182,29 @@ function buildSearchPlan(company: CompanyIdentity): SearchPlan[] {
       query: `${name} business model products segments revenue breakdown overview`,
       maxResults: 5,
     },
-    // 5. Shareholding pattern (recent)
+    // 5. Shareholding pattern — primary (Screener + Moneycontrol, structured data)
     {
-      query: `${name} ${ticker} shareholding pattern promoter FII DII 2025`,
+      query: `"${name}" promoter shareholding percentage latest quarter 2024 2025`,
+      includeDomains: ['screener.in', 'moneycontrol.com', 'trendlyne.com', 'tickertape.in'],
       timeRange: 'year',
       maxResults: 4,
+      includeRawContent: true,
+    },
+    // 5b. Shareholding pattern — ticker-based
+    {
+      query: `"${ticker}" NSE shareholding pattern promoter FII DII`,
+      includeDomains: ['screener.in', 'moneycontrol.com', 'trendlyne.com', 'tickertape.in'],
+      timeRange: 'year',
+      maxResults: 4,
+      includeRawContent: true,
+    },
+    // 5c. Shareholding official filings
+    {
+      query: `${ticker} ${name} shareholding pattern September December March June 2026 promoter FII percentage`,
+      includeDomains: ['bseindia.com', 'nseindia.com'],
+      timeRange: 'year',
+      maxResults: 3,
+      includeRawContent: true,
     },
     // 6. Orders, contracts, expansions (news)
     {
@@ -313,7 +272,7 @@ export async function performResearch(
           searchDepth: 'advanced',        // Always use advanced for stock research
           maxResults: p.maxResults ?? 5,
           includeAnswer: false,
-          includeRawContent: false,
+          includeRawContent: (p.includeRawContent === true ? 'text' : p.includeRawContent || false) as 'text' | 'markdown' | false | undefined,
           ...(p.includeDomains ? { includeDomains: p.includeDomains } : {}),
           ...(p.timeRange ? { days: timeRangeToDays(p.timeRange) } : {}),
         })

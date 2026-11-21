@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Send, Sparkles, Bot, User, RefreshCw, Copy, Check } from 'lucide-react';
 import type { ResearchReport } from '@/types/research';
 
@@ -91,12 +91,6 @@ export function ResearchChat({ report }: Props) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  /* Auto-scroll to latest message */
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -265,7 +259,6 @@ export function ResearchChat({ report }: Props) {
               </div>
             ))}
 
-            <div ref={bottomRef} style={{ height: '1px' }} />
           </div>
         </div>
 

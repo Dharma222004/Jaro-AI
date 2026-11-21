@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
             const stageLabels: Record<string, string> = {
               web_research: 'Multi-source research (Screener, BSE/NSE, Presentations, Press)',
               metric_extraction: 'Financial metric extraction & ratio calculation',
+              financial_enrichment: 'Missing-metric recovery & multi-source verification',
               validation: 'Cross-source validation & conflict detection',
               ai_analysis: 'Jaro AI is Analyzing & Synthesizing Financials',
               report_validation: 'Report finalization and schema verification',

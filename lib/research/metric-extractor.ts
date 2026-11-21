@@ -28,8 +28,55 @@ export interface ExtractedFinancials {
   publicHolding?: FinancialMetric;
   pledgedHolding?: FinancialMetric;
   shareholdingAsOf?: string;
-  basis: 'Consolidated' | 'Standalone';
+  basis: 'Consolidated' | 'Standalone' | 'Unspecified';
   technical?: TechnicalAnalysis;
+  totalAssets?: FinancialMetric;
+  totalLiabilities?: FinancialMetric;
+  currentAssets?: FinancialMetric;
+  currentLiabilities?: FinancialMetric;
+  shareholdersEquity?: FinancialMetric;
+  equityCapital?: FinancialMetric;
+  reserves?: FinancialMetric;
+  operatingCashFlow?: FinancialMetric;
+  investingCashFlow?: FinancialMetric;
+  financingCashFlow?: FinancialMetric;
+  freeCashFlow?: FinancialMetric;
+  capex?: FinancialMetric;
+  currentRatio?: FinancialMetric;
+  quickRatio?: FinancialMetric;
+  interestCoverage?: FinancialMetric;
+  interestExpense?: FinancialMetric;
+  ebit?: FinancialMetric;
+  workingCapital?: FinancialMetric;
+  annualTrend?: Array<{
+    period: string;
+    revenue?: number | string | null;
+    operatingProfit?: number | string | null;
+    ebitda?: number | string | null;
+    profit?: number | string | null;
+    eps?: number | string | null;
+    sourceId?: string | null;
+    basis?: string | null;
+  }>;
+  quarterlyTrend?: Array<{
+    period: string;
+    revenue?: number | string | null;
+    operatingProfit?: number | string | null;
+    ebitda?: number | string | null;
+    profit?: number | string | null;
+    eps?: number | string | null;
+    sourceId?: string | null;
+    basis?: string | null;
+  }>;
+  shareholdingHistory?: Array<{
+    period: string;
+    promoter?: number | null;
+    fii?: number | null;
+    dii?: number | null;
+    public?: number | null;
+    sourceId?: string | null;
+    basis?: string | null;
+  }>;
 }
 
 /**
@@ -68,17 +115,25 @@ export function extractFinancialMetrics(params: {
   // Find source IDs
   const screenerSource = sources.find((s) => s.domain.includes('screener.in')) || sources[0];
   const filingSource = sources.find((s) => s.domain.includes('bseindia.com') || s.domain.includes('nseindia.com')) || screenerSource;
-  const techSource = sources.find((s) => s.domain.includes('moneycontrol') || s.domain.includes('trendlyne')) || screenerSource;
 
   const screenerSrcId = screenerSource?.id ?? 'src_screener';
   const filingSrcId = filingSource?.id ?? 'src_filing';
 
-  // Determine basis (prefer Consolidated for Indian conglomerates / groups)
-  const isConsolidated = combined.toLowerCase().includes('consolidated');
-  const basis: 'Consolidated' | 'Standalone' = isConsolidated ? 'Consolidated' : 'Standalone';
+  // Never infer one statement basis when the evidence corpus contains both bases.
+  const lowerEvidence = combined.toLowerCase();
+  const hasConsolidated = lowerEvidence.includes('consolidated');
+  const hasStandalone = lowerEvidence.includes('standalone');
+  const basis: ExtractedFinancials['basis'] = hasConsolidated === hasStandalone
+    ? 'Unspecified'
+    : hasConsolidated ? 'Consolidated' : 'Standalone';
 
   // Helper to parse cells from markdown table row
   const parseCells = (line: string) => line.split('|').map((s) => s.trim()).filter(Boolean);
+  const findTableRow = (lines: string[], aliases: string[]) => {
+    const labelled = lines.map((line) => ({ line, label: parseCells(line)[0]?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() ?? '' }));
+    return labelled.find((item) => aliases.includes(item.label))?.line
+      ?? labelled.find((item) => !/growth|margin|percentage|yoy/.test(item.label) && aliases.some((alias) => item.label.startsWith(`${alias} `)))?.line;
+  };
 
   let tablePeriod: string | null = null;
   let tableSales: number | null = null;
@@ -99,34 +154,35 @@ export function extractFinancialMetrics(params: {
   if (qIdx !== -1) {
     const qSection = combined.slice(qIdx, qIdx + 3000);
     const qLines = qSection.split('\n').filter((l) => l.trim().startsWith('|'));
-    if (qLines.length >= 13) {
+    if (qLines.length >= 3) {
       const headers = parseCells(qLines[0]);
       if (headers.length > 0) {
         tablePeriod = headers[headers.length - 1]; // e.g. Jun 2026
       }
-      // Row 2 is Sales / Revenue
-      const salesCells = parseCells(qLines[2]);
+      // Resolve rows by their labels; table positions vary by source and period.
+      const salesLine = findTableRow(qLines.slice(1), ['sales', 'revenue', 'revenue from operations', 'total income']);
+      const salesCells = salesLine ? parseCells(salesLine) : [];
       if (salesCells.length > 0) {
         tableSales = parseCleanNumber(salesCells[salesCells.length - 1]);
         if (salesCells.length >= 5) {
           tablePrevSales = parseCleanNumber(salesCells[salesCells.length - 5]); // 4 quarters ago for YoY
         }
       }
-      // Row 4 is Operating Profit / EBITDA
-      const opCells = parseCells(qLines[4]);
+      const operatingLine = findTableRow(qLines.slice(1), ['operating profit', 'ebitda']);
+      const opCells = operatingLine ? parseCells(operatingLine) : [];
       if (opCells.length > 0) {
         tableEbitda = parseCleanNumber(opCells[opCells.length - 1]);
       }
-      // Row 11 is Net Profit (PAT)
-      const npCells = parseCells(qLines[11]);
+      const profitLine = findTableRow(qLines.slice(1), ['net profit', 'profit after tax', 'pat']);
+      const npCells = profitLine ? parseCells(profitLine) : [];
       if (npCells.length > 0) {
         tableNetProfit = parseCleanNumber(npCells[npCells.length - 1]);
         if (npCells.length >= 5) {
           tablePrevNetProfit = parseCleanNumber(npCells[npCells.length - 5]);
         }
       }
-      // Row 12 is EPS in Rs
-      const epsCells = parseCells(qLines[12]);
+      const epsLine = findTableRow(qLines.slice(1), ['eps in rs', 'eps']);
+      const epsCells = epsLine ? parseCells(epsLine) : [];
       if (epsCells.length > 0) {
         tableEps = parseCleanNumber(epsCells[epsCells.length - 1]);
       }
@@ -147,35 +203,35 @@ export function extractFinancialMetrics(params: {
         break;
       }
     }
-    // Also check row 4 if label is missing
-    if (tableBorrowings === null && bLines.length >= 5) {
-      const bRow3 = parseCells(bLines[4]);
-      if (bRow3.length > 0) {
-        tableBorrowings = parseCleanNumber(bRow3[bRow3.length - 1]);
-      }
-    }
+    // Never infer borrowings by row position; absence remains missing.
   }
 
-  // 3. Structured Table Parser: ## Shareholding Pattern
-  const sIdx = combined.indexOf('## Shareholding Pattern');
+  // 3. Structured Table Parser: Shareholding Pattern
+  const sMatch = combined.match(/#{1,4}\s*Shareholding(?:\s*Pattern)?/i)
+    ?? combined.match(/Shareholding\s*Pattern/i);
+  const sIdx = sMatch ? (sMatch.index ?? -1) : -1;
   if (sIdx !== -1) {
-    const sSection = combined.slice(sIdx, sIdx + 2000);
+    const sSection = combined.slice(sIdx, sIdx + 2500);
     const sLines = sSection.split('\n').filter((l) => l.trim().startsWith('|'));
-    if (sLines.length >= 7) {
+    if (sLines.length >= 2) {
       const sHeaders = parseCells(sLines[0]);
       if (sHeaders.length > 0) {
         tableSharePeriod = sHeaders[sHeaders.length - 1];
       }
-      const promCells = parseCells(sLines[2]);
+      const promLine = findTableRow(sLines.slice(1), ['promoters', 'promoter', 'promoter group']);
+      const promCells = promLine ? parseCells(promLine) : [];
       if (promCells.length > 0) tablePromoter = parseCleanNumber(promCells[promCells.length - 1]);
 
-      const fiiCells = parseCells(sLines[3]);
+      const fiiLine = findTableRow(sLines.slice(1), ['fiis', 'fii', 'foreign', 'foreign institutions', 'foreign institutional']);
+      const fiiCells = fiiLine ? parseCells(fiiLine) : [];
       if (fiiCells.length > 0) tableFii = parseCleanNumber(fiiCells[fiiCells.length - 1]);
 
-      const diiCells = parseCells(sLines[4]);
+      const diiLine = findTableRow(sLines.slice(1), ['diis', 'dii', 'domestic', 'domestic institutions', 'domestic institutional']);
+      const diiCells = diiLine ? parseCells(diiLine) : [];
       if (diiCells.length > 0) tableDii = parseCleanNumber(diiCells[diiCells.length - 1]);
 
-      const pubCells = parseCells(sLines[6]);
+      const publicLine = findTableRow(sLines.slice(1), ['public', 'retail']);
+      const pubCells = publicLine ? parseCells(publicLine) : [];
       if (pubCells.length > 0) tablePublic = parseCleanNumber(pubCells[pubCells.length - 1]);
     }
   }
@@ -193,7 +249,7 @@ export function extractFinancialMetrics(params: {
   const peRaw = matchPattern(combined, /(?:Stock\s*P\/E|P\/E\s*Ratio|PE\s*Ratio|P\/E)\s*[:\s]*([0-9,.]+)/i);
   const peVal = peRaw ? parseCleanNumber(peRaw) : null;
 
-  const pbRaw = matchPattern(combined, /(?:Book\s*Value|P\/B\s*Ratio|Price\s*to\s*Book|P\/B)\s*[:₹\s]*([0-9,.]+)/i);
+  const pbRaw = matchPattern(combined, /(?:P\/B\s*Ratio|Price\s*to\s*Book|P\/B)\s*[:₹\s]*([0-9,.]+)/i);
   const pbVal = pbRaw ? parseCleanNumber(pbRaw) : null;
 
   const roeRaw = matchPattern(combined, /ROE\s*[:\s]*([0-9,.]+)\s*%/i);
@@ -209,7 +265,7 @@ export function extractFinancialMetrics(params: {
   const deVal = deRaw ? parseCleanNumber(deRaw) : null;
 
   // Debt & Cash
-  let debtRaw = matchPattern(combined, /(?:Total\s*Debt|Borrowings|Debt)\s*[:₹\s]*([0-9,.]+)\s*(?:Cr|Crore)?/i);
+  const debtRaw = matchPattern(combined, /(?:Total\s*Debt|Borrowings|Debt)\s*[:₹\s]*([0-9,.]+)\s*(?:Cr|Crore)?/i);
   const debtVal = tableBorrowings ?? (debtRaw ? parseCleanNumber(debtRaw) : null);
 
   const cashRaw = matchPattern(combined, /(?:Cash\s*(?:&|and)?\s*Equivalents?|Cash\s*Balance)\s*[:₹\s]*([0-9,.]+)\s*(?:Cr|Crore)?/i);
@@ -227,26 +283,46 @@ export function extractFinancialMetrics(params: {
   if (!netProfitRaw) netProfitRaw = matchPattern(combined, /NP\s*Qtr\s*Rs\.?Cr\.?[^|]*\|\s*([0-9,.]+)/i);
   const netProfitVal = tableNetProfit ?? (netProfitRaw ? parseCleanNumber(netProfitRaw) : null);
 
-  let ebitdaRaw = matchPattern(combined, /(?:Operating\s*Profit|EBITDA)\s*[:₹\s]*([0-9,.]+)\s*(?:Cr|Crore)?/i);
+  const ebitdaRaw = matchPattern(combined, /(?:Operating\s*Profit|EBITDA)\s*[:₹\s]*([0-9,.]+)\s*(?:Cr|Crore)?/i);
   const ebitdaVal = tableEbitda ?? (ebitdaRaw ? parseCleanNumber(ebitdaRaw) : null);
 
-  let epsRaw = matchPattern(combined, /EPS(?:\s*in\s*Rs)?\s*[:₹\s]*([0-9,.]+)/i);
+  const epsRaw = matchPattern(combined, /EPS(?:\s*in\s*Rs)?\s*[:₹\s]*([0-9,.]+)/i);
   const epsVal = tableEps ?? (epsRaw ? parseCleanNumber(epsRaw) : null);
 
   // Shareholding
-  let promoterRaw = matchPattern(combined, /Promoter[s']?\s*(?:holding)?\s*[:\s]*([0-9,.]+)\s*%/i);
-  const promoterVal = tablePromoter ?? (promoterRaw ? parseCleanNumber(promoterRaw) : null);
+  const promoterRaw = matchPattern(combined, /(?:Promoter[s']?(?:\s*group|\s*holding)?|Promoters?)\s*[:|–—-]?\s*([0-9,.]+)\s*%?/i);
+  const promoterTableMatch = matchPattern(combined, /\|\s*Promoters?\s*\|\s*([0-9,.]+)/i);
+  const promoterScreener = matchPattern(combined, /^[|#\s]*promoters?\s+(\d+\.?\d*)\s/im);
+  const promoterVal = tablePromoter
+    ?? (promoterTableMatch ? parseCleanNumber(promoterTableMatch) : null)
+    ?? (promoterRaw ? parseCleanNumber(promoterRaw) : null)
+    ?? (promoterScreener ? parseCleanNumber(promoterScreener) : null);
 
-  let fiiRaw = matchPattern(combined, /FII[s']?\s*(?:holding)?\s*[:\s]*([0-9,.]+)\s*%/i);
-  const fiiVal = tableFii ?? (fiiRaw ? parseCleanNumber(fiiRaw) : null);
+  const fiiRaw = matchPattern(combined, /(?:FII[s']?(?:\s*holding|\/\s*FPI)?|Foreign\s*Institutional)\s*[:|–—-]?\s*([0-9,.]+)\s*%?/i);
+  const fiiTableMatch = matchPattern(combined, /\|\s*(?:FIIs?|FPIs?)\s*\|\s*([0-9,.]+)/i);
+  const fiiScreener = matchPattern(combined, /^[|#\s]*(?:fiis?|foreign\s+institutional)\s+(\d+\.?\d*)\s/im);
+  const fiiVal = tableFii
+    ?? (fiiTableMatch ? parseCleanNumber(fiiTableMatch) : null)
+    ?? (fiiRaw ? parseCleanNumber(fiiRaw) : null)
+    ?? (fiiScreener ? parseCleanNumber(fiiScreener) : null);
 
-  let diiRaw = matchPattern(combined, /DII[s']?\s*(?:holding)?\s*[:\s]*([0-9,.]+)\s*%/i);
-  const diiVal = tableDii ?? (diiRaw ? parseCleanNumber(diiRaw) : null);
+  const diiRaw = matchPattern(combined, /(?:DII[s']?(?:\s*holding)?|Domestic\s*Institutional)\s*[:|–—-]?\s*([0-9,.]+)\s*%?/i);
+  const diiTableMatch = matchPattern(combined, /\|\s*DIIs?\s*\|\s*([0-9,.]+)/i);
+  const diiScreener = matchPattern(combined, /^[|#\s]*(?:diis?|domestic\s+institutional)\s+(\d+\.?\d*)\s/im);
+  const diiVal = tableDii
+    ?? (diiTableMatch ? parseCleanNumber(diiTableMatch) : null)
+    ?? (diiRaw ? parseCleanNumber(diiRaw) : null)
+    ?? (diiScreener ? parseCleanNumber(diiScreener) : null);
 
-  let publicRaw = matchPattern(combined, /Public\s*(?:holding)?\s*[:\s]*([0-9,.]+)\s*%/i);
-  const publicVal = tablePublic ?? (publicRaw ? parseCleanNumber(publicRaw) : null);
+  const publicRaw = matchPattern(combined, /(?:Public(?:\s*holding|\s*shareholders?)?|Retail)\s*[:|–—-]?\s*([0-9,.]+)\s*%?/i);
+  const publicTableMatch = matchPattern(combined, /\|\s*Public\s*\|\s*([0-9,.]+)/i);
+  const publicScreener = matchPattern(combined, /^[|#\s]*public\s+(\d+\.?\d*)\s/im);
+  const publicVal = tablePublic
+    ?? (publicTableMatch ? parseCleanNumber(publicTableMatch) : null)
+    ?? (publicRaw ? parseCleanNumber(publicRaw) : null)
+    ?? (publicScreener ? parseCleanNumber(publicScreener) : null);
 
-  const pledgedRaw = matchPattern(combined, /Pledged\s*(?:percentage|shares)?\s*[:\s]*([0-9,.]+)\s*%/i);
+  const pledgedRaw = matchPattern(combined, /(?:Pledged(?:\s*percentage|\s*shares)?|Promoter(?:s)?\s+Pledge[sd]?)\s*[:|–—-]?\s*([0-9,.]+)\s*%/i);
   const pledgedVal = pledgedRaw ? parseCleanNumber(pledgedRaw) : 0;
 
   // 5. Deterministic Derived Calculations
@@ -358,10 +434,10 @@ export function extractFinancialMetrics(params: {
     totalDebt: debtVal !== null ? { value: debtVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: screenerSrcId, metricType: 'reported' } : undefined,
     cash: cashVal !== null ? { value: cashVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: screenerSrcId, metricType: 'reported' } : undefined,
     netDebt,
-    revenue: revVal !== null ? { value: revVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: filingSrcId, metricType: 'reported' } : undefined,
-    ebitda: ebitdaVal !== null ? { value: ebitdaVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: filingSrcId, metricType: 'reported' } : undefined,
-    netProfit: netProfitVal !== null ? { value: netProfitVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: filingSrcId, metricType: 'reported' } : undefined,
-    eps: epsVal !== null ? { value: epsVal, unit: '₹', period: latestPeriod, basis, sourceId: filingSrcId, metricType: 'reported' } : undefined,
+    revenue: revVal !== null ? { value: revVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: tableSales !== null ? screenerSrcId : filingSrcId, metricType: 'reported' } : undefined,
+    ebitda: ebitdaVal !== null ? { value: ebitdaVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: tableEbitda !== null ? screenerSrcId : filingSrcId, metricType: 'reported' } : undefined,
+    netProfit: netProfitVal !== null ? { value: netProfitVal, unit: '₹ Cr', period: latestPeriod, basis, sourceId: tableNetProfit !== null ? screenerSrcId : filingSrcId, metricType: 'reported' } : undefined,
+    eps: epsVal !== null ? { value: epsVal, unit: '₹', period: latestPeriod, basis, sourceId: tableEps !== null ? screenerSrcId : filingSrcId, metricType: 'reported' } : undefined,
     revenueGrowth,
     profitGrowth,
     ebitdaMargin,

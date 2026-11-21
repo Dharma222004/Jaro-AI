@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ReportView } from '@/components/research/ReportView';
 import type { ResearchReport, ResearchSourceMeta } from '@/types/research';
 
@@ -25,12 +25,9 @@ export default function HistoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchReport();
-  }, [id]);
-
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await fetch(`/api/research/${id}`);
       const json = await res.json();
@@ -41,7 +38,14 @@ export default function HistoryDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchReport();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchReport]);
 
   if (loading) {
     return (
@@ -73,7 +77,7 @@ export default function HistoryDetailPage() {
       sources={data.sources}
       researchId={id}
       onBack={() => router.push('/history')}
-      onRefresh={() => router.push('/dashboard')}
+      onRefresh={() => router.push('/')}
     />
   );
 }

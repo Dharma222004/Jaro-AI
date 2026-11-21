@@ -21,15 +21,17 @@ export function validateAndDetectConflicts(params: {
   sources: ResearchSourceMeta[];
   filingText: string;
   screenerText: string;
+  externalConflicts?: ConflictRecord[];
 }): ValidationOutput {
   const { extracted, sources, filingText, screenerText } = params;
 
-  const conflicts: ConflictRecord[] = [];
+  const conflicts: ConflictRecord[] = [...(params.externalConflicts ?? [])];
+  const basisWarnings = validateMetricMetadata(extracted, conflicts);
   const missingMetrics: string[] = [];
 
   // Check key metrics for availability
   const checkMetric = (name: string, m?: FinancialMetric) => {
-    if (!m || m.value === null || m.value === undefined || m.value === '') {
+    if ((!m || m.value === null || m.value === undefined || m.value === '') && m?.verificationStatus !== 'not_applicable') {
       missingMetrics.push(name);
     }
   };
@@ -46,6 +48,14 @@ export function validateAndDetectConflicts(params: {
   checkMetric('Promoter Holding', extracted.promoterHolding);
   checkMetric('FII Holding', extracted.fiiHolding);
   checkMetric('DII Holding', extracted.diiHolding);
+  checkMetric('Debt to Equity', extracted.debtToEquity);
+  checkMetric('Current Ratio', extracted.currentRatio);
+  checkMetric('Interest Coverage', extracted.interestCoverage);
+  checkMetric('Total Assets', extracted.totalAssets);
+  checkMetric('Total Liabilities', extracted.totalLiabilities);
+  checkMetric('Shareholders Equity', extracted.shareholdersEquity);
+  checkMetric('Operating Cash Flow', extracted.operatingCashFlow);
+  checkMetric('Free Cash Flow', extracted.freeCashFlow);
 
   // Cross-source conflict check on Revenue
   // Check if filing and screener disclose differing revenue figures
@@ -114,10 +124,104 @@ export function validateAndDetectConflicts(params: {
     missingMetricsCount: missingMetrics.length,
     conflicts,
     missingMetrics,
+    basisWarnings,
+    metricAudit: buildMetricAudit(extracted),
   };
 
   return {
     validatedMetrics: extracted,
     dataQuality,
   };
+}
+
+function buildMetricAudit(extracted: ExtractedFinancials): NonNullable<DataQualityReport['metricAudit']> {
+  const labels: Array<[string, string]> = [
+    ['revenue', 'Revenue'], ['ebitda', 'EBITDA / Operating Profit'], ['netProfit', 'Net Profit'], ['eps', 'EPS'],
+    ['totalDebt', 'Total Debt'], ['cash', 'Cash & Equivalents'], ['totalAssets', 'Total Assets'],
+    ['totalLiabilities', 'Total Liabilities'], ['currentAssets', 'Current Assets'], ['currentLiabilities', 'Current Liabilities'],
+    ['shareholdersEquity', 'Shareholders Equity'], ['reserves', 'Reserves'], ['operatingCashFlow', 'Operating Cash Flow'],
+    ['investingCashFlow', 'Investing Cash Flow'], ['financingCashFlow', 'Financing Cash Flow'], ['capex', 'Capital Expenditure'],
+    ['freeCashFlow', 'Free Cash Flow'], ['debtToEquity', 'Debt to Equity'], ['currentRatio', 'Current Ratio'],
+    ['interestCoverage', 'Interest Coverage'], ['roe', 'ROE'], ['roce', 'ROCE'], ['pe', 'P/E'], ['pb', 'P/B'],
+    ['evEbitda', 'EV/EBITDA'], ['promoterHolding', 'Promoter Holding'], ['fiiHolding', 'FII Holding'],
+    ['diiHolding', 'DII Holding'], ['publicHolding', 'Public Holding'], ['pledgedHolding', 'Promoter Pledge'],
+  ];
+  const record = extracted as unknown as Record<string, unknown>;
+  return labels.map(([key, label]) => {
+    const metric = record[key] as FinancialMetric | undefined;
+    return {
+      metric: label,
+      value: metric?.value ?? null,
+      unit: metric?.unit ?? '',
+      period: metric?.period,
+      basis: metric?.basis,
+      currency: metric?.currency,
+      statementType: metric?.statementType,
+      sourceId: metric?.sourceId,
+      sourceName: metric?.sourceName,
+      sourceUrl: metric?.sourceUrl,
+      publicationDate: metric?.publicationDate,
+      retrievedAt: metric?.retrievedAt,
+      verificationStatus: metric?.verificationStatus ?? (metric?.value != null ? 'unverified' : 'unavailable'),
+      confidence: metric?.confidence,
+      formula: metric?.formula,
+      note: metric?.note,
+    };
+  });
+}
+
+function validateMetricMetadata(extracted: ExtractedFinancials, conflicts: ConflictRecord[]) {
+  const warnings: string[] = [];
+  const record = extracted as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(record)) {
+    if (!isFinancialMetric(value) || value.value == null || value.value === '') continue;
+    let basisFromStatement: NonNullable<FinancialMetric['basis']> = value.statementType === 'consolidated' ? 'Consolidated'
+      : value.statementType === 'standalone' ? 'Standalone' : 'Unspecified';
+    let basis: NonNullable<FinancialMetric['basis']> = value.basis ?? 'Unspecified';
+    if (basis !== 'Unspecified' && basisFromStatement === 'Unspecified' && value.statementType == null) {
+      value.statementType = basis === 'Consolidated' ? 'consolidated' : 'standalone';
+      basisFromStatement = basis;
+    } else if (basis === 'Unspecified' && basisFromStatement !== 'Unspecified') {
+      value.basis = basisFromStatement;
+      basis = basisFromStatement;
+    }
+    if (basis !== 'Unspecified' && basisFromStatement !== 'Unspecified' && basis !== basisFromStatement) {
+      conflicts.push({
+        metric: humanizeKey(key),
+        selectedValue: null,
+        selectedSource: value.sourceName ?? value.sourceUrl ?? 'Retrieved evidence',
+        conflictingValues: [{ value: value.value, source: 'Metric metadata', basis }, { value: value.value, source: 'Statement metadata', basis: basisFromStatement }],
+        resolution: 'The value was excluded because consolidated and standalone metadata conflict.',
+      });
+      value.value = null;
+      value.verificationStatus = 'unavailable';
+      value.confidence = 'limited';
+      value.note = 'Reporting basis conflict detected; value excluded pending verification against the original filing.';
+      warnings.push(`${humanizeKey(key)}: consolidated/standalone metadata conflict; value excluded.`);
+      continue;
+    }
+    if (basis === 'Unspecified' && basisFromStatement === 'Unspecified') {
+      value.basis = 'Unspecified';
+      value.statementType = 'unspecified';
+      value.verificationStatus = value.verificationStatus === 'verified' ? 'unverified' : value.verificationStatus;
+      value.confidence = value.confidence === 'high' ? 'moderate' : value.confidence;
+      const note = 'Reporting basis could not be independently confirmed.';
+      value.note = value.note ? `${value.note} ${note}` : note;
+      warnings.push(`${humanizeKey(key)}: ${note}`);
+    }
+    if (!value.currency && /₹|INR/i.test(value.unit)) value.currency = 'INR';
+    if (!value.period) {
+      value.verificationStatus = value.verificationStatus === 'verified' ? 'unverified' : value.verificationStatus;
+      warnings.push(`${humanizeKey(key)}: reporting period is unavailable.`);
+    }
+  }
+  return [...new Set(warnings)];
+}
+
+function isFinancialMetric(value: unknown): value is FinancialMetric {
+  return Boolean(value && typeof value === 'object' && 'value' in value && 'unit' in value);
+}
+
+function humanizeKey(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase());
 }

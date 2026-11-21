@@ -82,7 +82,7 @@ export async function collectMultiSourceData(
     // 1. Screener financial ratios & quarterly P&L
     {
       key: 'screener',
-      query: `${name} ${ticker} site:screener.in`,
+      query: `${name} ${company.screenerSlug || ticker} quarterly financial results ratios balance sheet`,
       includeDomains: ['screener.in'],
       maxResults: 3,
     },
@@ -96,7 +96,7 @@ export async function collectMultiSourceData(
     // 3. Official Investor Presentation & Earnings Concall
     {
       key: 'presentation',
-      query: `${name} investor presentation Q1 Q2 Q3 Q4 FY2025 FY2026 earnings conference call`,
+      query: `${name} ${ticker} investor presentation Q1 Q2 Q3 Q4 FY2025 FY2026 earnings conference call`,
       timeRange: 'year' as const,
       maxResults: 4,
     },
@@ -106,11 +106,19 @@ export async function collectMultiSourceData(
       query: `${name} revenue breakdown by segment product share domestic export annual report`,
       maxResults: 3,
     },
-    // 5. Shareholding Pattern
+    // 5. Shareholding Pattern — primary + fallback
     {
       key: 'shareholding',
-      query: `${name} ${ticker} shareholding pattern promoter FII DII pledged shares 2025`,
-      includeDomains: ['screener.in', 'trendlyne.com', 'bseindia.com'],
+      query: `${name} ${ticker} shareholding pattern promoter FII DII pledged shares 2025 2026`,
+      includeDomains: ['screener.in', 'moneycontrol.com', 'trendlyne.com', 'tickertape.in'],
+      timeRange: 'year' as const,
+      maxResults: 4,
+    },
+    // 5b. NSE/BSE official shareholding disclosures
+    {
+      key: 'shareholding_official',
+      query: `${name} ${ticker} shareholding pattern September December March June 2026 promoter FII`,
+      includeDomains: ['bseindia.com', 'nseindia.com'],
       timeRange: 'year' as const,
       maxResults: 3,
     },
@@ -166,7 +174,7 @@ export async function collectMultiSourceData(
     for (const res of settled) {
       if (res.status === 'fulfilled') {
         for (const r of res.value.results) {
-          if (!seenUrls.has(r.url)) {
+          if (!seenUrls.has(r.url) && isCompanyRelevant(r.title ?? '', r.content ?? '', company, r.url)) {
             seenUrls.add(r.url);
             allResults.push({
               key: res.value.key,
@@ -286,4 +294,16 @@ export async function collectMultiSourceData(
     technicalContent,
     allRawSnippets,
   };
+}
+
+function isCompanyRelevant(title: string, content: string, company: CompanyIdentity, sourceUrl = '') {
+  const archiveTicker = sourceUrl.toUpperCase().match(/AR_\d+_([A-Z0-9&-]+)_/)?.[1];
+  if (archiveTicker && archiveTicker !== company.ticker.toUpperCase()) return false;
+  const screenerTicker = sourceUrl.toUpperCase().match(/SCREENER\.IN\/COMPANY\/([^/?#]+)/)?.[1];
+  if (screenerTicker && screenerTicker !== company.ticker.toUpperCase() && screenerTicker !== (company.screenerSlug ?? company.ticker).toUpperCase()) return false;
+  const text = `${title} ${content}`.toLowerCase();
+  const escapedTicker = company.ticker.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameWords = company.name.toLowerCase().replace(/\b(limited|ltd|company|bank)\b/g, ' ').split(/\s+/).filter((word) => word.length > 2);
+  const phrase = nameWords.slice(0, Math.min(2, nameWords.length)).join(' ');
+  return new RegExp(`\\b${escapedTicker}\\b`, 'i').test(text) || (phrase.length >= 4 && text.includes(phrase));
 }

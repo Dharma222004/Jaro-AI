@@ -3,75 +3,118 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Search, BookMarked, Clock, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { BookMarked, BrainCircuit, ChevronLeft, ChevronRight, Clock3, Menu, NotebookTabs, Plus, Search, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { JaroLogo } from '@/components/brand/JaroLogo';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Research', icon: Search },
+  { href: '/', label: 'Research', icon: Search },
   { href: '/watchlist', label: 'Watchlist', icon: BookMarked },
-  { href: '/history', label: 'History', icon: Clock },
+  { href: '/history', label: 'History', icon: Clock3 },
+  { href: '/memory', label: 'Memory', icon: BrainCircuit },
+  { href: '/journal', label: 'Journal', icon: NotebookTabs },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [collapsePreferenceReady, setCollapsePreferenceReady] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        setCollapsed(localStorage.getItem('jaro_sidebar_collapsed') === 'true');
+      } catch {
+        setCollapsed(false);
+      } finally {
+        setCollapsePreferenceReady(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!collapsePreferenceReady) return;
+    try {
+      localStorage.setItem('jaro_sidebar_collapsed', String(collapsed));
+    } catch {
+      // The preference is optional when browser storage is unavailable.
+    }
+  }, [collapsePreferenceReady, collapsed]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    drawerRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileOpen]);
 
   return (
     <>
-      {/* Desktop Sidebar (Fixed 240px Left Navigation) */}
-      <aside className="sidebar-desktop">
-        <SidebarContent pathname={pathname} />
+      <aside className={`sidebar-desktop ${collapsed ? 'is-collapsed' : ''}`} aria-label="Primary navigation" id="desktop-primary-navigation">
+        <SidebarContent
+          collapsed={collapsed}
+          onToggleCollapsed={() => setCollapsed((value) => !value)}
+          pathname={pathname}
+        />
       </aside>
 
-      {/* Mobile Top Header (Only visible on screens <= 900px) */}
-      <div className="sidebar-mobile-header">
-        <Logo />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <header className="sidebar-mobile-header">
+        <Logo mobile />
+        <div className="mobile-header-actions">
+          <Link href="/?new=1" className="btn-mobile-new" aria-label="New chat" title="Start new conversation">
+            <Plus size={15} strokeWidth={2.4} />
+            <span>New</span>
+          </Link>
           <ThemeToggle size="sm" />
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="btn-ghost"
-            style={{ padding: '0.4rem' }}
-            aria-label="Toggle menu"
+            aria-controls="mobile-navigation-drawer"
+            aria-expanded={mobileOpen}
+            aria-label="Open navigation"
+            className="mobile-menu-trigger"
+            onClick={() => setMobileOpen(true)}
+            type="button"
           >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            <Menu size={20} />
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile Drawer Overlay */}
       {mobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 50,
-            display: 'flex',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(4px)',
-            }}
+        <div className="mobile-navigation-layer">
+          <button
+            aria-label="Close navigation"
+            className="mobile-navigation-scrim"
             onClick={() => setMobileOpen(false)}
+            type="button"
           />
           <aside
-            style={{
-              position: 'relative',
-              zIndex: 10,
-              width: '260px',
-              height: '100vh',
-              background: 'var(--bg-surface)',
-              borderRight: '1px solid var(--border-default)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
+            ref={drawerRef}
+            aria-label="Primary navigation"
+            aria-modal="true"
+            className="mobile-navigation-drawer"
+            id="mobile-navigation-drawer"
+            role="dialog"
+            tabIndex={-1}
           >
+            <button
+              aria-label="Close navigation"
+              className="mobile-drawer-close"
+              onClick={() => setMobileOpen(false)}
+              type="button"
+            >
+              <X size={18} />
+            </button>
             <SidebarContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
@@ -80,124 +123,85 @@ export function Sidebar() {
   );
 }
 
-function Logo() {
+function Logo({ mobile = false, compact = false }: { mobile?: boolean; compact?: boolean; animated?: boolean }) {
+  const variant = compact ? 'compact' : mobile ? 'mobile' : 'sidebar';
   return (
-    <Link
-      href="/dashboard"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.6rem',
-        textDecoration: 'none',
-      }}
-    >
-      <Image
-        src="/logo.png"
-        alt="Jaro AI Logo"
-        width={36}
-        height={36}
-        style={{ objectFit: 'contain', flexShrink: 0 }}
-        priority
-      />
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <span
-          style={{
-            fontWeight: 800,
-            fontSize: '1rem',
-            letterSpacing: '-0.02em',
-            color: 'var(--text-primary)',
-            lineHeight: 1.1,
-          }}
-        >
-          Jaro <span className="text-gradient-brand">AI</span>
-        </span>
-        <span
-          style={{
-            fontSize: '0.62rem',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-          }}
-        >
-          Equity Research
-        </span>
-      </div>
+    <Link aria-label="Jaro AI home" className="brand-home-link" href="/">
+      <JaroLogo variant={variant} />
     </Link>
   );
 }
 
 function SidebarContent({
-  pathname,
+  collapsed = false,
   onNavigate,
+  onToggleCollapsed,
+  pathname,
 }: {
-  pathname: string;
+  collapsed?: boolean;
   onNavigate?: () => void;
+  onToggleCollapsed?: () => void;
+  pathname: string;
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        justifyContent: 'space-between',
-      }}
-    >
+    <div className="sidebar-content">
       <div>
-        {/* Logo Header */}
-        <div
-          style={{
-            padding: '1.25rem 1.15rem',
-            borderBottom: '1px solid var(--border-subtle)',
-          }}
-        >
-          <Logo />
+        <div className={`sidebar-brand ${collapsed ? 'is-collapsed' : ''}`}>
+          <Logo compact={collapsed} />
+          {!collapsed && onToggleCollapsed && (
+            <button
+              aria-controls="desktop-primary-navigation"
+              aria-expanded={true}
+              aria-label="Collapse sidebar"
+              className="sidebar-collapse-toggle"
+              onClick={onToggleCollapsed}
+              title="Collapse sidebar"
+              type="button"
+            >
+              <ChevronLeft aria-hidden size={14} />
+            </button>
+          )}
         </div>
 
-        {/* Navigation Links */}
-        <nav style={{ padding: '0.85rem 0.65rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+        {collapsed && onToggleCollapsed && (
+          <div className="sidebar-expand-row">
+            <button
+              aria-controls="desktop-primary-navigation"
+              aria-expanded={false}
+              aria-label="Expand sidebar"
+              className="sidebar-expand-toggle"
+              onClick={onToggleCollapsed}
+              title="Expand sidebar"
+              type="button"
+            >
+              <ChevronRight aria-hidden size={14} />
+            </button>
+          </div>
+        )}
+
+        <nav className="sidebar-nav" aria-label="Workspace">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+            const isActive = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
-                key={href}
-                href={href}
-                onClick={onNavigate}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={label}
                 className={`nav-link ${isActive ? 'active' : ''}`}
+                href={href}
+                key={href}
+                onClick={onNavigate}
+                title={collapsed ? label : undefined}
               >
-                <Icon
-                  size={16}
-                  strokeWidth={isActive ? 2.5 : 2}
-                  style={{
-                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ flex: 1 }}>{label}</span>
-                {isActive && (
-                  <span
-                    style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      background: 'var(--accent)',
-                    }}
-                  />
-                )}
+                <Icon aria-hidden size={18} strokeWidth={isActive ? 2.25 : 1.9} />
+                <span>{label}</span>
               </Link>
             );
           })}
         </nav>
       </div>
 
-      {/* Footer Area with Theme Toggle */}
-      <div
-        style={{
-          padding: '1rem 1rem 4.75rem 1rem',
-          borderTop: '1px solid var(--border-subtle)',
-        }}
-      >
-        <ThemeToggle showLabel />
+      <div className="sidebar-footer">
+        <ThemeToggle showLabel={!collapsed} />
       </div>
     </div>
   );

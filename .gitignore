@@ -22,6 +22,12 @@ jaro.env
 *.db
 *.db-journal
 dev.db
+data/backups/
+data/*.json
+
+# Large root media exports
+JARO AI*.png
+JARO AI*.mp4
 
 # Prisma
 prisma/migrations/

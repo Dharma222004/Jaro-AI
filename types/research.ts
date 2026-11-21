@@ -10,6 +10,7 @@ export interface ResearchSourceMeta {
   publishedAt?: string;
   retrievedAt: string;
   snippet?: string;
+  supportedMetrics?: string[];
 }
 
 // Research stage progress
@@ -46,9 +47,17 @@ export interface FinancialMetric {
   asOf?: string | null;
   basis?: 'Consolidated' | 'Standalone' | 'Unspecified';
   sourceId?: string | null;
-  metricType?: 'reported' | 'calculated';
+  metricType?: 'reported' | 'calculated' | 'estimated';
   formula?: string | null;
   note?: string | null;
+  currency?: string | null;
+  statementType?: 'consolidated' | 'standalone' | 'unspecified';
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  publicationDate?: string | null;
+  retrievedAt?: string | null;
+  verificationStatus?: 'verified' | 'cross_checked' | 'calculated' | 'estimated' | 'unverified' | 'not_reported' | 'unavailable' | 'not_applicable';
+  confidence?: 'high' | 'moderate' | 'limited';
 }
 
 export interface BusinessSegment {
@@ -117,6 +126,27 @@ export interface DataQualityReport {
   missingMetricsCount: number;
   conflicts: ConflictRecord[];
   missingMetrics: string[];
+  basisWarnings?: string[];
+  metricAudit?: MetricAuditRecord[];
+}
+
+export interface MetricAuditRecord {
+  metric: string;
+  value: string | number | null;
+  unit: string;
+  period?: string | null;
+  basis?: string | null;
+  currency?: string | null;
+  statementType?: FinancialMetric['statementType'];
+  sourceId?: string | null;
+  sourceName?: string | null;
+  sourceUrl?: string | null;
+  publicationDate?: string | null;
+  retrievedAt?: string | null;
+  verificationStatus: FinancialMetric['verificationStatus'];
+  confidence?: FinancialMetric['confidence'];
+  formula?: string | null;
+  note?: string | null;
 }
 
 export interface TechnicalAnalysis {
@@ -127,6 +157,14 @@ export interface TechnicalAnalysis {
   sma50?: number | string | null;
   sma200?: number | string | null;
   rsi?: number | string | null;
+  macd?: number | string | null;
+  macdSignal?: number | string | null;
+  volume?: number | string | null;
+  averageVolume20d?: number | string | null;
+  volumeTrend?: string | null;
+  support?: number | string | null;
+  resistance?: number | string | null;
+  priceMomentum20dPct?: number | string | null;
   trend?: 'Bullish' | 'Neutral' | 'Bearish' | string;
   observations?: string;
 }
@@ -139,10 +177,13 @@ export interface ReportSource {
   sourceType: string;
   authority?: 'high' | 'medium' | 'low';
   publishedAt?: string | null;
+  retrievedAt?: string | null;
+  supportedMetrics?: string[];
 }
 
 // Full structured equity research report JSON
 export interface ResearchReport {
+  reportVersion?: number;
   company: {
     name: string;
     ticker: string;
@@ -180,6 +221,21 @@ export interface ResearchReport {
     debtToEquity?: FinancialMetric;
     freeCashFlow?: FinancialMetric;
     capex?: FinancialMetric;
+    currentRatio?: FinancialMetric;
+    interestCoverage?: FinancialMetric;
+    totalAssets?: FinancialMetric;
+    totalLiabilities?: FinancialMetric;
+    currentAssets?: FinancialMetric;
+    currentLiabilities?: FinancialMetric;
+    shareholdersEquity?: FinancialMetric;
+    equityCapital?: FinancialMetric;
+    reserves?: FinancialMetric;
+    operatingCashFlow?: FinancialMetric;
+    investingCashFlow?: FinancialMetric;
+    financingCashFlow?: FinancialMetric;
+    interestExpense?: FinancialMetric;
+    ebit?: FinancialMetric;
+    workingCapital?: FinancialMetric;
     // Historical trends if available
     quarterlyTrend?: Array<{
       period: string;
@@ -187,6 +243,9 @@ export interface ResearchReport {
       ebitda?: number | string | null;
       profit?: number | string | null;
       eps?: number | string | null;
+      operatingProfit?: number | string | null;
+      sourceId?: string | null;
+      basis?: string | null;
     }>;
     annualTrend?: Array<{
       period: string;
@@ -194,6 +253,9 @@ export interface ResearchReport {
       ebitda?: number | string | null;
       profit?: number | string | null;
       eps?: number | string | null;
+      operatingProfit?: number | string | null;
+      sourceId?: string | null;
+      basis?: string | null;
     }>;
   };
 
@@ -224,6 +286,15 @@ export interface ResearchReport {
     public: FinancialMetric;
     pledged?: FinancialMetric;
     asOfDate?: string | null;
+    history?: Array<{
+      period: string;
+      promoter?: number | null;
+      fii?: number | null;
+      dii?: number | null;
+      public?: number | null;
+      sourceId?: string | null;
+      basis?: string | null;
+    }>;
   };
 
   balanceSheetAnalysis?: string;

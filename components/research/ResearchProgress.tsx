@@ -1,10 +1,10 @@
 'use client';
 
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
   query: string;
-  stages?: any[];
+  stages?: Array<{ id: string; label: string; status: string; detail?: string }>;
 }
 
 export function ResearchProgress({ query }: Props) {
@@ -20,7 +20,7 @@ export function ResearchProgress({ query }: Props) {
       }}
     >
       <div
-        className="card"
+        className="card research-progress-card"
         style={{
           maxWidth: '520px',
           width: '100%',

@@ -30,7 +30,6 @@ export function formatNumber(value: number | string): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(num)) return String(value);
   
-  const fixed = typeof value === 'string' ? value : num.toFixed(0);
   // Indian number format
   return new Intl.NumberFormat('en-IN').format(num);
 }

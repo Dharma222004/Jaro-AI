@@ -8,7 +8,24 @@ import type {
   CommentaryItem,
 } from '@/types/research';
 import type { ValidationOutput } from './validator-engine';
-import { analyzeWithGroq } from './groq-runner';
+import { analyzeWithGroq } from '@/lib/groq/client';
+
+interface AnalysisSynthesis {
+  description?: string;
+  businessModel?: string;
+  products?: string[];
+  segments?: BusinessSegment[];
+  geographies?: string[];
+  executiveSummary?: string;
+  growthDrivers?: string[];
+  futureCatalysts?: string[];
+  strengths?: string[];
+  risks?: unknown[];
+  managementCommentary?: unknown[];
+  recentDevelopments?: unknown[];
+  balanceSheetAnalysis?: string;
+  cashFlowAnalysis?: string;
+}
 
 export async function generateInstitutionalAnalysis(params: {
   company: CompanyIdentity;
@@ -48,6 +65,12 @@ export async function generateInstitutionalAnalysis(params: {
 - Cash & Equivalents: ${validatedMetrics.cash?.value ? `₹${validatedMetrics.cash.value} Cr` : 'N/A'}
 - Net Debt: ${validatedMetrics.netDebt?.value ? `₹${validatedMetrics.netDebt.value} Cr` : 'N/A'}
 - Debt to Equity: ${validatedMetrics.debtToEquity?.value ?? 'N/A'}
+- Total Assets: ${validatedMetrics.totalAssets?.value ? `₹${validatedMetrics.totalAssets.value} Cr (${validatedMetrics.totalAssets.period})` : 'N/A'}
+- Shareholders Equity: ${validatedMetrics.shareholdersEquity?.value ? `₹${validatedMetrics.shareholdersEquity.value} Cr (${validatedMetrics.shareholdersEquity.period})` : 'N/A'}
+- Current Ratio: ${validatedMetrics.currentRatio?.value ?? 'N/A'}
+- Interest Coverage: ${validatedMetrics.interestCoverage?.value ?? 'N/A'}
+- Operating Cash Flow: ${validatedMetrics.operatingCashFlow?.value ? `₹${validatedMetrics.operatingCashFlow.value} Cr (${validatedMetrics.operatingCashFlow.period})` : 'N/A'}
+- Free Cash Flow: ${validatedMetrics.freeCashFlow?.value ? `₹${validatedMetrics.freeCashFlow.value} Cr (${validatedMetrics.freeCashFlow.period})` : 'N/A'}
 - Latest Quarterly Revenue: ${validatedMetrics.revenue?.value ? `₹${validatedMetrics.revenue.value} Cr (${validatedMetrics.revenue.period})` : 'N/A'}
 - Latest Net Profit (PAT): ${validatedMetrics.netProfit?.value ? `₹${validatedMetrics.netProfit.value} Cr (${validatedMetrics.netProfit.period})` : 'N/A'}
 - EBITDA Margin: ${validatedMetrics.ebitdaMargin?.value ? `${validatedMetrics.ebitdaMargin.value}%` : 'N/A'}
@@ -144,11 +167,11 @@ Generate the institutional equity analysis JSON with this exact schema:
   "cashFlowAnalysis": "2-3 sentences on capital intensity, capex cycle, and cash generation"
 }`;
 
-  let aiSynthesis: Record<string, any> = {};
+  let aiSynthesis: AnalysisSynthesis = {};
   try {
-    aiSynthesis = await analyzeWithGroq({ systemPrompt, userPrompt });
+    aiSynthesis = await analyzeWithGroq({ systemPrompt, userPrompt }) as unknown as AnalysisSynthesis;
   } catch (err) {
-    console.warn('[groq-analyzer] LLM synthesis failed, using fallback synthesis:', err);
+    console.warn('[nvidia-analyzer] LLM synthesis failed, using fallback synthesis:', err);
     aiSynthesis = {
       description: `${company.name} (${company.exchange}: ${company.ticker}) is an Indian listed enterprise in the ${company.sector ?? 'equity market'} sector.`,
       businessModel: `Generates revenue through primary commercial operations in ${company.industry ?? 'its core domain'}.`,
@@ -181,43 +204,55 @@ Generate the institutional equity analysis JSON with this exact schema:
     sourceType: s.sourceType,
     authority: s.authority,
     publishedAt: s.publishedAt ?? null,
+    retrievedAt: s.retrievedAt,
+    supportedMetrics: s.supportedMetrics,
   }));
 
   // Map developments to ensure all fields are populated
   const recentDevelopments: DevelopmentItem[] = Array.isArray(aiSynthesis.recentDevelopments)
-    ? aiSynthesis.recentDevelopments.map((d: any) => ({
-        headline: d.headline || 'Corporate Update',
-        description: d.whatHappened || d.description || '',
-        whatHappened: d.whatHappened || d.description || '',
-        whyItMatters: d.whyItMatters || '',
-        date: d.date || null,
-        sourceId: d.sourceId || mappedSources[0]?.id || null,
-        category: d.category || 'General',
-      }))
+    ? aiSynthesis.recentDevelopments.map((value: unknown) => {
+        const d = asRecord(value);
+        return {
+          headline: asString(d.headline, 'Corporate Update'),
+          description: asString(d.whatHappened, asString(d.description)),
+          whatHappened: asString(d.whatHappened, asString(d.description)),
+          whyItMatters: asString(d.whyItMatters),
+          date: asNullableString(d.date),
+          sourceId: asNullableString(d.sourceId) ?? mappedSources[0]?.id ?? null,
+          category: asString(d.category, 'General'),
+        };
+      })
     : [];
 
   // Map risks to ensure all fields are populated
   const risks: RiskItem[] = Array.isArray(aiSynthesis.risks)
-    ? aiSynthesis.risks.map((r: any) => ({
-        category: r.category || 'Business Risk',
-        risk: r.risk || r.category || 'Operational Risk',
-        description: r.description || '',
-        whyItMatters: r.whyItMatters || '',
-        evidence: r.evidence || '',
-        severity: (['high', 'medium', 'low'].includes(r.severity) ? r.severity : 'medium') as 'high' | 'medium' | 'low',
-        sourceId: r.sourceId || null,
-      }))
+    ? aiSynthesis.risks.map((value: unknown) => {
+        const r = asRecord(value);
+        const severity = typeof r.severity === 'string' && ['high', 'medium', 'low'].includes(r.severity) ? r.severity as 'high' | 'medium' | 'low' : 'medium';
+        return {
+          category: asString(r.category, 'Business Risk'),
+          risk: asString(r.risk, asString(r.category, 'Operational Risk')),
+          description: asString(r.description),
+          whyItMatters: asString(r.whyItMatters),
+          evidence: asString(r.evidence),
+          severity,
+          sourceId: asNullableString(r.sourceId),
+        };
+      })
     : [];
 
   // Map management commentary
   const managementCommentary: CommentaryItem[] = Array.isArray(aiSynthesis.managementCommentary)
-    ? aiSynthesis.managementCommentary.map((c: any) => ({
-        speaker: c.speaker || 'Management',
-        quote: c.quote || '',
-        context: c.context || 'Investor Disclosure',
-        date: c.date || null,
-        sourceId: c.sourceId || null,
-      }))
+    ? aiSynthesis.managementCommentary.map((value: unknown) => {
+        const c = asRecord(value);
+        return {
+          speaker: asString(c.speaker, 'Management'),
+          quote: asString(c.quote),
+          context: asString(c.context, 'Investor Disclosure'),
+          date: asNullableString(c.date),
+          sourceId: asNullableString(c.sourceId),
+        };
+      })
     : [];
 
   // Assemble full institutional ResearchReport
@@ -245,11 +280,30 @@ Generate the institutional equity analysis JSON with this exact schema:
       eps: validatedMetrics.eps ?? { value: null, unit: '₹', period: null, basis: validatedMetrics.basis },
       debt: validatedMetrics.totalDebt ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
       cash: validatedMetrics.cash ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
-      cashFlow: { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis, note: 'Detailed cash flow statement not fully disclosed in quarterly summary.' },
+      cashFlow: validatedMetrics.operatingCashFlow ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis, verificationStatus: 'unavailable', note: 'Data currently unavailable — no sufficiently reliable source found.' },
       revenueGrowth: validatedMetrics.revenueGrowth,
       profitGrowth: validatedMetrics.profitGrowth,
       netDebt: validatedMetrics.netDebt,
       debtToEquity: validatedMetrics.debtToEquity,
+      freeCashFlow: validatedMetrics.freeCashFlow,
+      capex: validatedMetrics.capex,
+      currentRatio: validatedMetrics.currentRatio,
+      interestCoverage: validatedMetrics.interestCoverage,
+      totalAssets: validatedMetrics.totalAssets,
+      totalLiabilities: validatedMetrics.totalLiabilities,
+      currentAssets: validatedMetrics.currentAssets,
+      currentLiabilities: validatedMetrics.currentLiabilities,
+      shareholdersEquity: validatedMetrics.shareholdersEquity,
+      equityCapital: validatedMetrics.equityCapital,
+      reserves: validatedMetrics.reserves,
+      operatingCashFlow: validatedMetrics.operatingCashFlow,
+      investingCashFlow: validatedMetrics.investingCashFlow,
+      financingCashFlow: validatedMetrics.financingCashFlow,
+      interestExpense: validatedMetrics.interestExpense,
+      ebit: validatedMetrics.ebit,
+      workingCapital: validatedMetrics.workingCapital,
+      annualTrend: validatedMetrics.annualTrend,
+      quarterlyTrend: validatedMetrics.quarterlyTrend,
     },
     profitability: {
       roe: validatedMetrics.roe ?? { value: null, unit: '%', period: null, basis: validatedMetrics.basis },
@@ -262,6 +316,7 @@ Generate the institutional equity analysis JSON with this exact schema:
       pb: validatedMetrics.pb ?? { value: null, unit: 'x', period: null, basis: validatedMetrics.basis },
       marketCap: validatedMetrics.marketCap ?? { value: null, unit: '₹ Cr', period: null, basis: validatedMetrics.basis },
       dividendYield: validatedMetrics.dividendYield,
+      evEbitda: validatedMetrics.evEbitda,
     },
     shareholding: {
       promoter: validatedMetrics.promoterHolding ?? { value: null, unit: '%', period: null },
@@ -270,6 +325,7 @@ Generate the institutional equity analysis JSON with this exact schema:
       public: validatedMetrics.publicHolding ?? { value: null, unit: '%', period: null },
       pledged: validatedMetrics.pledgedHolding ?? { value: 0, unit: '%', period: null },
       asOfDate: validatedMetrics.shareholdingAsOf ?? null,
+      history: validatedMetrics.shareholdingHistory,
     },
     balanceSheetAnalysis: aiSynthesis.balanceSheetAnalysis || undefined,
     cashFlowAnalysis: aiSynthesis.cashFlowAnalysis || undefined,
@@ -286,8 +342,20 @@ Generate the institutional equity analysis JSON with this exact schema:
     sources: mappedSources,
     generatedAt,
     queryAsked: query,
-    basisPreference: validatedMetrics.basis,
+    basisPreference: validatedMetrics.basis === 'Unspecified' ? undefined : validatedMetrics.basis,
   };
 
   return report;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+}
+
+function asString(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
 }

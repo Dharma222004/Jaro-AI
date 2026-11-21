@@ -73,3 +73,261 @@ model Watchlist {
   @@unique([companyId])
   @@map("watchlists")
 }
+
+model MemoryRecord {
+  id               String   @id @default(cuid())
+  ownerKey         String
+  type             String
+  eventType        String?
+  conversationId   String?
+  summary          String
+  contentJson      String?
+  entitiesJson     String   @default("[]")
+  sourceMessageId  String?
+  sourceReportId   String?
+  confidence       Float    @default(0.7)
+  importance       Float    @default(0.5)
+  active           Boolean  @default(true)
+  expiresAt        DateTime?
+  lastAccessedAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([ownerKey, type, active])
+  @@index([ownerKey, conversationId])
+  @@index([ownerKey, updatedAt])
+  @@map("memory_records")
+}
+
+model StrategySignal {
+  id             String   @id @default(cuid())
+  signalKey      String   @unique
+  ownerKey       String
+  instrumentKey  String
+  ticker         String
+  exchange       String
+  strategyId     String
+  strategyVersion String
+  decisionStatus String
+  mode           String   @default("shadow")
+  marketTimestamp DateTime
+  detectedAt     DateTime @default(now())
+  setupJson      String
+  snapshotJson   String
+  outcomeStatus  String   @default("pending")
+  outcomeJson    String?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  trades TradeJournal[]
+
+  @@index([ownerKey, ticker, strategyId])
+  @@index([ownerKey, outcomeStatus])
+  @@map("strategy_signals")
+}
+
+model TradeJournal {
+  id             String   @id @default(cuid())
+  ownerKey       String
+  signalId       String?
+  instrumentKey  String
+  ticker         String
+  strategyId     String?
+  strategyVersion String?
+  actualEntry    Float
+  actualExit     Float?
+  quantity       Int
+  actualCharges  Float?
+  realizedPnl    Float?
+  entryAt        DateTime
+  exitAt         DateTime?
+  notes          String?
+  userConfirmed  Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  signal StrategySignal? @relation(fields: [signalId], references: [id], onDelete: SetNull)
+
+  @@index([ownerKey, ticker])
+  @@index([ownerKey, entryAt])
+  @@map("trade_journal")
+}
+
+model StrategyBacktestRun {
+  id              String   @id @default(cuid())
+  runKey          String   @unique
+  resultHash      String
+  instrumentKey   String
+  ticker          String
+  benchmarkKey    String
+  strategyId      String
+  strategyVersion String
+  timeframe       String
+  coverageFrom    DateTime?
+  coverageTo      DateTime?
+  candleCount     Int
+  settingsJson    String
+  resultJson      String
+  generatedAt     DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([instrumentKey, strategyId, strategyVersion])
+  @@index([generatedAt])
+  @@map("strategy_backtest_runs")
+}
+
+model ConversationRecord {
+  id             String    @id @default(cuid())
+  ownerKey       String
+  title          String?
+  summary        String?
+  summaryVersion Int       @default(0)
+  messageCount   Int       @default(0)
+  lastMessageAt  DateTime?
+  entities       String    @default("[]") // JSON array of entity strings
+  status         String    @default("active") // active | archived | deleted
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  messages       ConversationMessage[]
+
+  @@index([ownerKey, status, lastMessageAt])
+  @@map("conversation_records")
+}
+
+model ConversationMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  role            String   // user | assistant | system
+  content         String
+  contentSummary  String?  // compressed version for long messages
+  attachmentsJson String   @default("[]")
+  memoryRefs      String   @default("[]") // memory IDs used in this message
+  stageJson       String?  // thinking stages JSON
+  createdAt       DateTime @default(now())
+  conversation    ConversationRecord @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("conversation_messages")
+}
+
+model EpisodicEvent {
+  id              String   @id @default(cuid())
+  ownerKey        String
+  conversationId  String?
+  eventType       String   // company_research | investment_decision | document_analysis | user_preference | project_decision | tool_execution | error
+  title           String
+  summary         String
+  entitiesJson    String   @default("[]")
+  documentIds     String   @default("[]")
+  sourceMessageId String?
+  outcome         String?  // success | failure | partial | pending
+  importance      Float    @default(0.5)
+  confidence      Float    @default(0.8)
+  metadataJson    String   @default("{}")
+  eventTimestamp  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([ownerKey, eventType, eventTimestamp])
+  @@index([ownerKey, conversationId])
+  @@map("episodic_events")
+}
+
+model LongTermMemory {
+  id               String    @id @default(cuid())
+  ownerKey         String
+  category         String    // semantic | procedural | preference | project
+  memoryKey        String?   // unique key for deduplication within category
+  title            String
+  value            String    // the actual memory value
+  summary          String
+  sourceType       String?   // user_explicit | ai_extracted | system
+  sourceRef        String?
+  confidence       Float     @default(0.8)
+  importance       Float     @default(0.7)
+  sensitivity      String    @default("normal") // normal | sensitive | restricted
+  status           String    @default("active") // active | superseded | expired | deleted
+  validFrom        DateTime  @default(now())
+  validUntil       DateTime?
+  expirationPolicy String    @default("manual") // manual | ttl | event_based
+  version          Int       @default(1)
+  previousId       String?   // points to previous version if superseded
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([ownerKey, category, memoryKey])
+  @@index([ownerKey, category, status])
+  @@index([ownerKey, status, importance])
+  @@map("long_term_memories")
+}
+
+model DocumentRecord {
+  id               String    @id @default(cuid())
+  ownerKey         String
+  title            String
+  fileName         String
+  fileType         String    // pdf | docx | xlsx | csv | txt | md | html | json | image
+  fileSize         Int?
+  contentHash      String?
+  sourceUrl        String?
+  sourceName       String?
+  companyId        String?
+  documentCategory String    @default("general") // annual_report | quarterly_results | investor_presentation | research | transcript | reference | other
+  publicationDate  DateTime?
+  reportingPeriod  String?   // e.g. "FY2025 Q2"
+  reportingBasis   String?   // standalone | consolidated
+  ingestionStatus  String    @default("uploaded") // uploaded | queued | processing | indexed | partial | failed | outdated | deleted
+  ingestionError   String?
+  pageCount        Int?
+  chunkCount       Int?
+  storageKey       String?   // local file path or future cloud object key
+  version          Int       @default(1)
+  previousId       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  chunks           DocumentChunk[]
+
+  @@index([ownerKey, documentCategory, ingestionStatus])
+  @@index([ownerKey, companyId])
+  @@index([contentHash])
+  @@map("document_records")
+}
+
+model DocumentChunk {
+  id            String   @id @default(cuid())
+  documentId    String
+  ownerKey      String
+  chunkIndex    Int
+  content       String
+  contentType   String   @default("text") // text | table | heading | list
+  pageNumber    Int?
+  sectionTitle  String?
+  parentChunkId String?
+  embeddingJson String?  // JSON array of floats (local embedding)
+  metadataJson  String   @default("{}")
+  createdAt     DateTime @default(now())
+  document      DocumentRecord @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, chunkIndex])
+  @@index([ownerKey])
+  @@map("document_chunks")
+}
+
+model MemoryRetrievalLog {
+  id                   String   @id @default(cuid())
+  ownerKey             String
+  conversationId       String?
+  query                String
+  episodicCount        Int      @default(0)
+  longTermCount        Int      @default(0)
+  documentCount        Int      @default(0)
+  selectedSourceIds    String   @default("[]")
+  retrievalMs          Int      @default(0)
+  contextTokenEstimate Int      @default(0)
+  errors               String   @default("[]")
+  createdAt            DateTime @default(now())
+
+  @@index([ownerKey, createdAt])
+  @@map("memory_retrieval_logs")
+}

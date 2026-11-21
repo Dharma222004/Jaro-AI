@@ -1,5 +1,5 @@
 import { prisma } from './client';
-import type { ResearchReport, ResearchSourceMeta, WatchlistItem } from '@/types/research';
+import type { ResearchSourceMeta, WatchlistItem } from '@/types/research';
 
 // ---- Research Reports ----
 

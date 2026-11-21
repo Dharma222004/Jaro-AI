@@ -25,7 +25,6 @@ import type {
   ReportSource,
 } from '@/types/research';
 import { formatDate, formatNumber } from '@/lib/formatting/numbers';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { LiveMarketPanel } from './LiveMarketPanel';
 
 interface ReportViewProps {
@@ -48,8 +47,6 @@ type TabType =
 
 export function ReportView({
   report,
-  sources,
-  researchId,
   onBack,
   onRefresh,
 }: ReportViewProps) {
@@ -100,9 +97,10 @@ export function ReportView({
   ];
 
   return (
-    <div style={{ background: 'var(--bg-base)', minHeight: '100vh', color: 'var(--text-primary)' }}>
+    <div className="report-view" style={{ background: 'var(--bg-base)', minHeight: '100vh', color: 'var(--text-primary)' }}>
       {/* Top Fixed Terminal Bar */}
       <header
+        className="report-view-header"
         style={{
           position: 'sticky',
           top: 0,
@@ -147,11 +145,9 @@ export function ReportView({
         </div>
 
         <div className="report-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexShrink: 0 }}>
-          <ThemeToggle size="sm" />
-
           <button
             onClick={handlePrint}
-            className="btn-secondary"
+            className="btn-secondary report-export-action"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -212,7 +208,7 @@ export function ReportView({
       </header>
 
       {/* Main Content Area */}
-      <main className="page-container" style={{ maxWidth: '1080px', margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+      <main className="page-container report-dossier" style={{ maxWidth: '1080px', margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
         {/* Institutional Company Header */}
         <CompanyHeaderCard report={report} />
 
@@ -375,7 +371,7 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
 
   return (
     <div
-      className="card"
+      className="card company-header-card"
       style={{
         padding: '1.75rem',
         borderRadius: '12px',
@@ -383,14 +379,19 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
         background: 'var(--bg-surface)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
-        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-          Updated: {formatDate(report.generatedAt)}
-        </span>
+      <div className="company-dossier-meta">
+        <div>
+          <span className="report-category-label">Company research</span>
+          <span className="ticker-badge">{report.company.exchange}: {report.company.ticker}</span>
+          {(report.company.sector || report.company.industry) && <span className="badge-neutral">{report.company.sector || report.company.industry}</span>}
+          <span className="badge-neutral">{report.sources?.length ?? 0} sources</span>
+        </div>
+        <span className="report-generated-date">Report generated {formatDate(report.generatedAt)}</span>
       </div>
 
       {/* Company Title & Industry */}
       <h1
+        className="company-report-title"
         style={{
           fontSize: '1.85rem',
           fontWeight: 800,
@@ -404,18 +405,19 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
       </h1>
 
       {report.company.industry && (
-        <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '0.85rem', fontWeight: 500 }}>
+        <p className="company-report-industry" style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '0.85rem', fontWeight: 500 }}>
           {report.company.industry}
         </p>
       )}
 
       {/* Description */}
-      <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, maxWidth: '85ch', marginBottom: '1.5rem' }}>
+      <p className="company-report-description" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.65, maxWidth: '85ch', marginBottom: '1.5rem' }}>
         {report.company.description}
       </p>
 
       {/* Integrated Key Metrics Strip */}
       <div
+        className="company-market-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -425,7 +427,7 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
         }}
       >
         {/* Metric 1: Last Price — always from Yahoo Finance live data */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+        <div className="company-market-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
             <span className="metric-label" style={{ fontSize: '0.72rem' }}>Last Price</span>
             {liveChangePct != null && (
@@ -442,10 +444,11 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
               {isPositive ? '+' : ''}₹{Math.abs(liveChange).toFixed(2)} today
             </p>
           )}
+          <small className="company-metric-period">Latest market quote</small>
         </div>
 
         {/* Metric 2: Market Cap — always from Yahoo Finance live data */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+        <div className="company-market-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
           <span className="metric-label" style={{ fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Market Capitalization</span>
           <p className="metric-value" style={{ fontSize: '1.3rem', fontWeight: 800 }}>
             {displayMcap != null ? (
@@ -456,10 +459,11 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
               'Reported in Filings'
             )}
           </p>
+          <small className="company-metric-period">Latest available</small>
         </div>
 
         {/* Metric 3: 52W Range — live from Yahoo Finance */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+        <div className="company-market-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
           <span className="metric-label" style={{ fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>52-Week Range</span>
           {displayHigh52 && displayLow52 ? (
             <div>
@@ -481,10 +485,11 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
           ) : (
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Trading in listed band</p>
           )}
+          <small className="company-metric-period">Trailing 52 weeks</small>
         </div>
 
         {/* Metric 4: Core Multiples — live from Yahoo Finance */}
-        <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
+        <div className="company-market-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.85rem 1rem' }}>
           <span className="metric-label" style={{ fontSize: '0.72rem', display: 'block', marginBottom: '0.2rem' }}>Core Multiples</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginTop: '0.2rem' }}>
             <div>
@@ -500,6 +505,7 @@ function CompanyHeaderCard({ report }: { report: ResearchReport }) {
               </strong>
             </div>
           </div>
+          <small className="company-metric-period">Trailing market multiples</small>
         </div>
       </div>
     </div>
@@ -522,6 +528,7 @@ function OverviewTab({
   onTabChange: (tab: TabType) => void;
 }) {
   const dq = report.dataQuality;
+  const f = report.financials;
 
   // Live Yahoo Finance enrichment for KPI cards that are "Not Disclosed" in the report
   const [liveKpi, setLiveKpi] = useState<{
@@ -541,10 +548,8 @@ function OverviewTab({
         if (!d) return;
         const roe = d.returnOnEquity != null ? Math.round(d.returnOnEquity * 1000) / 10 : null;
         const de = d.debtToEquity != null ? d.debtToEquity / 100 : null; // Yahoo returns as %, convert to ratio
-        // Approximate ROCE ≈ ROE / (1 − D/(D+E)) or use returnOnAssets as proxy
-        const roce = d.returnOnAssets != null
-          ? Math.round(d.returnOnAssets * 1000) / 10
-          : (roe != null && de != null ? Math.round(roe * (1 + de) * 10) / 10 : null);
+        // Yahoo does not expose ROCE consistently; never substitute ROA or an estimate.
+        const roce = null;
         setLiveKpi({
           revenue: d.totalRevenue != null ? Math.round(d.totalRevenue / 1e7) : null,
           ebitda: d.ebitda != null ? Math.round(d.ebitda / 1e7) : null,
@@ -563,7 +568,7 @@ function OverviewTab({
   const liveMetric = (existing: FinancialMetric | null | undefined, liveVal: number | null | undefined, unit: string, label: string): FinancialMetric | null => {
     if (existing?.value != null && existing.value !== '') return existing;
     if (liveVal == null) return existing ?? null;
-    return { value: liveVal, unit, period: 'Live', basis: 'Consolidated', metricType: 'reported', note: `${label} · Source: Yahoo Finance (live)` };
+    return { value: liveVal, unit, period: 'Latest available', basis: 'Consolidated', metricType: 'reported', note: `${label} · Official exchange session quote` };
   };
 
   return (
@@ -637,6 +642,17 @@ function OverviewTab({
           </div>
         )}
       </div>
+
+      {/* Historical Financial Trends */}
+      {(f.annualTrend?.length || f.quarterlyTrend?.length) && (
+        <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+            Verified Financial History
+          </h3>
+          {f.annualTrend && f.annualTrend.length > 0 && <FinancialTrendChart title="Annual revenue, EBITDA & net profit" data={f.annualTrend} />}
+          {f.quarterlyTrend && f.quarterlyTrend.length > 0 && <FinancialTrendTable title="Quarterly financial performance" data={f.quarterlyTrend} />}
+        </div>
+      )}
 
       {/* 8 Primary Research Snapshot KPI Cards (Section 16 Pillar 1) */}
       <div>
@@ -757,6 +773,9 @@ function FinancialsTab({
     debtToEquity?: number | null;
     roce?: number | null;
     roe?: number | null;
+    currentRatio?: number | null;
+    operatingCashFlow?: number | null;
+    freeCashFlow?: number | null;
   }>({});
 
   useEffect(() => {
@@ -779,9 +798,8 @@ function FinancialsTab({
         const netDebt = cash != null && debt != null ? debt - cash : null;
         const de = d.debtToEquity != null ? Math.round(d.debtToEquity) / 100 : null;
         const roe = toPct(d.returnOnEquity);
-        const roce = d.returnOnAssets != null
-          ? toPct(d.returnOnAssets)
-          : (roe != null && de != null ? Math.round(roe * (1 + de) * 10) / 10 : null);
+        // Yahoo does not expose ROCE consistently; retain the filing-derived report value.
+        const roce = null;
 
         setLiveF({
           revenue: rev,
@@ -798,6 +816,9 @@ function FinancialsTab({
           debtToEquity: de,
           roe,
           roce,
+          currentRatio: d.currentRatio ?? null,
+          operatingCashFlow: toInrCr(d.operatingCashflow),
+          freeCashFlow: toInrCr(d.freeCashflow),
         });
       })
       .catch(() => {});
@@ -812,7 +833,7 @@ function FinancialsTab({
   ): FinancialMetric | null => {
     if (existing?.value != null && existing.value !== '') return existing;
     if (liveVal == null) return existing ?? null;
-    return { value: liveVal, unit, period: 'TTM', basis: 'Consolidated', metricType: 'reported', note: `${label} · Yahoo Finance live` };
+    return { value: liveVal, unit, period: 'TTM', basis: 'Consolidated', metricType: 'reported', note: `${label} · Official exchange session quote` };
   };
 
   return (
@@ -846,8 +867,17 @@ function FinancialsTab({
           <InstitutionalMetricCard label="Cash & Equivalents"         metric={lm(f.cash,          liveF.cash,         'Cr',  'Cash')}              sourceMap={sourceMap} />
           <InstitutionalMetricCard label="Net Debt"                   metric={lm(f.netDebt,       liveF.netDebt,      'Cr',  'Net Debt')}          sourceMap={sourceMap} />
           <InstitutionalMetricCard label="Debt to Equity"             metric={lm(f.debtToEquity,  liveF.debtToEquity, 'x',   'D/E Ratio')}         sourceMap={sourceMap} />
-          <InstitutionalMetricCard label="Return on Cap. Emp. (ROCE)" metric={lm(p.roce,          liveF.roce,         '%',   'ROCE (approx.)')}    sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Return on Cap. Emp. (ROCE)" metric={lm(p.roce,          liveF.roce,         '%',   'ROCE')}              sourceMap={sourceMap} />
           <InstitutionalMetricCard label="Return on Equity (ROE)"     metric={lm(p.roe,           liveF.roe,          '%',   'ROE (TTM)')}         sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Current Ratio"               metric={lm(f.currentRatio, liveF.currentRatio, 'x',   'Current Ratio')}     sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Interest Coverage"           metric={f.interestCoverage} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Total Assets"                metric={f.totalAssets} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Total Liabilities"           metric={f.totalLiabilities} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Shareholders' Equity"        metric={f.shareholdersEquity} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Reserves"                    metric={f.reserves} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Current Assets"              metric={f.currentAssets} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Current Liabilities"         metric={f.currentLiabilities} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Working Capital"             metric={f.workingCapital} sourceMap={sourceMap} />
         </div>
 
         {report.balanceSheetAnalysis && (
@@ -855,6 +885,565 @@ function FinancialsTab({
             {report.balanceSheetAnalysis}
           </p>
         )}
+      </div>
+
+      {/* Cash Flow Statement */}
+      <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+        <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+          Cash Flow Statement
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+          <InstitutionalMetricCard label="Operating Cash Flow" metric={lm(f.operatingCashFlow ?? f.cashFlow, liveF.operatingCashFlow, 'Cr', 'Operating Cash Flow')} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Investing Cash Flow" metric={f.investingCashFlow} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Financing Cash Flow" metric={f.financingCashFlow} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Capital Expenditure" metric={f.capex} sourceMap={sourceMap} />
+          <InstitutionalMetricCard label="Free Cash Flow" metric={lm(f.freeCashFlow, liveF.freeCashFlow, 'Cr', 'Free Cash Flow')} sourceMap={sourceMap} />
+        </div>
+        {report.cashFlowAnalysis && (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, padding: '0.85rem', marginTop: '1rem', background: 'var(--bg-elevated)', borderRadius: '8px' }}>
+            {report.cashFlowAnalysis}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function parseTrendNum(val: unknown): number | null {
+  if (val == null || val === '') return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const str = String(val).trim();
+  if (/^(?:—|-|n\/a|null|undefined)$/i.test(str)) return null;
+  const cleaned = str.replace(/[₹,%()\s]/g, '').replace(/,/g, '');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? (str.includes('(') && n > 0 ? -n : n) : null;
+}
+
+function FinancialTrendChart({
+  title,
+  data,
+}: {
+  title: string;
+  data: NonNullable<ResearchReport['financials']['annualTrend']>;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const [showRevenue, setShowRevenue] = useState(true);
+  const [showOperating, setShowOperating] = useState(true);
+  const [showProfit, setShowProfit] = useState(true);
+
+  const rows = data.slice(-8);
+
+  const parsedRows = rows.map((r) => {
+    const revenue = parseTrendNum(r.revenue);
+    const operating = parseTrendNum(r.operatingProfit ?? r.ebitda);
+    const profit = parseTrendNum(r.profit);
+    const eps = parseTrendNum(r.eps);
+    const cleanPeriod = (r.period || '')
+      .replace(/Financial year ending |Quarter ending /gi, '')
+      .trim();
+    return {
+      period: cleanPeriod,
+      rawPeriod: r.period,
+      revenue,
+      operating,
+      profit,
+      eps,
+      basis: r.basis ?? 'Unspecified',
+      opMargin: revenue && operating && revenue > 0 ? ((operating / revenue) * 100).toFixed(1) : null,
+      patMargin: revenue && profit != null && revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : null,
+    };
+  });
+
+  const hasRevenue = parsedRows.some((r) => r.revenue != null && r.revenue > 0);
+  const hasOperating = parsedRows.some((r) => r.operating != null);
+  const hasProfit = parsedRows.some((r) => r.profit != null);
+
+  const activeRevenue = hasRevenue && showRevenue;
+  const activeOperating = hasOperating && (showOperating || !hasRevenue);
+  const activeProfit = hasProfit && showProfit;
+
+  // Collect all values to calculate scale
+  const allValues: number[] = [];
+  parsedRows.forEach((r) => {
+    if (activeRevenue && r.revenue != null) allValues.push(r.revenue);
+    if (activeOperating && r.operating != null) allValues.push(r.operating);
+    if (activeProfit && r.profit != null) allValues.push(r.profit);
+  });
+
+  if (allValues.length === 0) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', border: '1px dashed var(--border-subtle)', color: 'var(--text-muted)' }}>
+        <p style={{ margin: 0, fontSize: '0.85rem' }}>No quantified historical statement series reported for this entity.</p>
+      </div>
+    );
+  }
+
+  const rawMax = Math.max(...allValues, 10);
+  const rawMin = Math.min(...allValues, 0);
+
+  // Friendly rounded upper limit
+  const step = Math.pow(10, Math.floor(Math.log10(rawMax))) || 10;
+  const yMax = Math.ceil((rawMax * 1.15) / (step / 2)) * (step / 2);
+  const yMin = rawMin < 0 ? Math.floor((rawMin * 1.25) / (step / 2)) * (step / 2) : 0;
+  const yRange = Math.max(yMax - yMin, 1);
+
+  const svgWidth = 840;
+  const svgHeight = 270;
+  const chartLeft = 70;
+  const chartRight = 815;
+  const chartTop = 35;
+  const chartBottom = 225;
+  const chartHeight = chartBottom - chartTop;
+  const chartWidth = chartRight - chartLeft;
+
+  const zeroY = yMin < 0 ? chartBottom - ((0 - yMin) / yRange) * chartHeight : chartBottom;
+
+  const colWidth = chartWidth / Math.max(parsedRows.length, 1);
+  const activeBarsCount = (activeRevenue ? 1 : 0) + (activeOperating ? 1 : 0) + (activeProfit ? 1 : 0);
+  const barSlotWidth = Math.min(22, (colWidth * 0.72) / Math.max(activeBarsCount, 1));
+  const groupSpan = barSlotWidth * activeBarsCount;
+
+  // Grid tick values (4 steps)
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const val = yMin + ratio * yRange;
+    const y = chartBottom - ratio * chartHeight;
+    return { val: Math.round(val), y };
+  });
+
+  return (
+    <div style={{ marginBottom: '1.5rem' }}>
+      {/* Chart Header & Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div>
+          <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)', display: 'block' }}>{title}</strong>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>₹ Cr · consolidated statement periods</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Metric Filter Toggles */}
+          {hasRevenue && (
+            <button
+              onClick={() => setShowRevenue(!showRevenue)}
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.6rem',
+                borderRadius: '6px',
+                border: activeRevenue ? '1px solid #38bdf8' : '1px solid #334155',
+                background: activeRevenue ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                color: activeRevenue ? '#38bdf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              ● Revenue
+            </button>
+          )}
+          {hasOperating && (
+            <button
+              onClick={() => setShowOperating(!showOperating)}
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.6rem',
+                borderRadius: '6px',
+                border: activeOperating ? '1px solid #818cf8' : '1px solid #334155',
+                background: activeOperating ? 'rgba(129, 140, 248, 0.15)' : 'transparent',
+                color: activeOperating ? '#818cf8' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              ● Operating Profit
+            </button>
+          )}
+          {hasProfit && (
+            <button
+              onClick={() => setShowProfit(!showProfit)}
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.6rem',
+                borderRadius: '6px',
+                border: activeProfit ? '1px solid #10b981' : '1px solid #334155',
+                background: activeProfit ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                color: activeProfit ? '#10b981' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              ● Net Profit
+            </button>
+          )}
+
+          {/* View Mode Toggle */}
+          <div style={{ display: 'flex', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden', marginLeft: '0.5rem' }}>
+            <button
+              onClick={() => setViewMode('chart')}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.25rem 0.55rem',
+                background: viewMode === 'chart' ? 'var(--bg-elevated)' : 'transparent',
+                color: viewMode === 'chart' ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: viewMode === 'chart' ? 600 : 400,
+              }}
+            >
+              Chart
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              style={{
+                fontSize: '0.7rem',
+                padding: '0.25rem 0.55rem',
+                background: viewMode === 'table' ? 'var(--bg-elevated)' : 'transparent',
+                color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: viewMode === 'table' ? 600 : 400,
+              }}
+            >
+              Table
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Tooltip Card */}
+      {hoveredIdx != null && parsedRows[hoveredIdx] && (
+        <div
+          style={{
+            display: 'flex',
+            gap: '1.25rem',
+            padding: '0.6rem 0.9rem',
+            background: '#131d2a',
+            border: '1px solid #263244',
+            borderRadius: '8px',
+            fontSize: '0.78rem',
+            alignItems: 'center',
+            marginBottom: '0.65rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <strong style={{ color: '#f8fafc' }}>{parsedRows[hoveredIdx].period}</strong>
+          {parsedRows[hoveredIdx].revenue != null && (
+            <span>Revenue: <strong style={{ color: '#38bdf8' }}>₹{formatNumber(parsedRows[hoveredIdx].revenue)} Cr</strong></span>
+          )}
+          {parsedRows[hoveredIdx].operating != null && (
+            <span>Operating Profit: <strong style={{ color: '#818cf8' }}>₹{formatNumber(parsedRows[hoveredIdx].operating)} Cr</strong> {parsedRows[hoveredIdx].opMargin && <span style={{ color: '#94a3b8' }}>({parsedRows[hoveredIdx].opMargin}%)</span>}</span>
+          )}
+          {parsedRows[hoveredIdx].profit != null && (
+            <span>Net Profit: <strong style={{ color: parsedRows[hoveredIdx].profit! >= 0 ? '#10b981' : '#ef4444' }}>₹{formatNumber(parsedRows[hoveredIdx].profit)} Cr</strong> {parsedRows[hoveredIdx].patMargin && <span style={{ color: '#94a3b8' }}>({parsedRows[hoveredIdx].patMargin}%)</span>}</span>
+          )}
+          {parsedRows[hoveredIdx].eps != null && (
+            <span>EPS: <strong style={{ color: '#fbbf24' }}>₹{formatNumber(parsedRows[hoveredIdx].eps)}</strong></span>
+          )}
+          <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: '0.7rem' }}>{parsedRows[hoveredIdx].basis}</span>
+        </div>
+      )}
+
+      {/* Visual Chart View */}
+      {viewMode === 'chart' ? (
+        <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '0.75rem', background: '#0e1622' }}>
+          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ minWidth: '680px', width: '100%', display: 'block' }} role="img" aria-label={title}>
+            {/* Gridlines & Y-Axis Labels */}
+            {ticks.map(({ val, y }) => (
+              <g key={val}>
+                <line
+                  x1={chartLeft}
+                  x2={chartRight}
+                  y1={y}
+                  y2={y}
+                  stroke={val === 0 ? '#334155' : '#1e293b'}
+                  strokeDasharray={val === 0 ? 'none' : '3 4'}
+                  strokeWidth={val === 0 ? 1.5 : 1}
+                />
+                <text
+                  x={chartLeft - 8}
+                  y={y + 3}
+                  textAnchor="end"
+                  fill="var(--text-muted)"
+                  fontSize="8.5"
+                  fontFamily="monospace"
+                >
+                  ₹{val.toLocaleString('en-IN')}
+                </text>
+              </g>
+            ))}
+
+            {/* Bars for Each Period */}
+            {parsedRows.map((row, colIndex) => {
+              const colCenterX = chartLeft + colIndex * colWidth + colWidth / 2;
+              let currentX = colCenterX - groupSpan / 2;
+              const isHovered = hoveredIdx === colIndex;
+
+              const bars: React.ReactNode[] = [];
+
+              if (activeRevenue && row.revenue != null) {
+                const val = row.revenue;
+                const h = Math.max(2, (val / yRange) * chartHeight);
+                const y = zeroY - h;
+                bars.push(
+                  <g key="rev">
+                    <rect
+                      x={currentX}
+                      y={y}
+                      width={barSlotWidth - 2}
+                      height={h}
+                      rx="3"
+                      fill="#38bdf8"
+                      opacity={isHovered ? 1 : 0.85}
+                    />
+                    <text
+                      x={currentX + (barSlotWidth - 2) / 2}
+                      y={Math.max(16, y - 5)}
+                      textAnchor="middle"
+                      fill="#38bdf8"
+                      fontSize="8.5"
+                      fontWeight="600"
+                    >
+                      {formatNumber(val)}
+                    </text>
+                  </g>
+                );
+                currentX += barSlotWidth;
+              }
+
+              if (activeOperating && row.operating != null) {
+                const val = row.operating;
+                const h = Math.max(2, (Math.abs(val) / yRange) * chartHeight);
+                const y = val >= 0 ? zeroY - h : zeroY;
+                bars.push(
+                  <g key="op">
+                    <rect
+                      x={currentX}
+                      y={y}
+                      width={barSlotWidth - 2}
+                      height={h}
+                      rx="3"
+                      fill="#818cf8"
+                      opacity={isHovered ? 1 : 0.85}
+                    />
+                    <text
+                      x={currentX + (barSlotWidth - 2) / 2}
+                      y={val >= 0 ? Math.max(16, y - 5) : y + h + 10}
+                      textAnchor="middle"
+                      fill="#818cf8"
+                      fontSize="8.5"
+                      fontWeight="600"
+                    >
+                      {formatNumber(val)}
+                    </text>
+                  </g>
+                );
+                currentX += barSlotWidth;
+              }
+
+              if (activeProfit && row.profit != null) {
+                const val = row.profit;
+                const h = Math.max(2, (Math.abs(val) / yRange) * chartHeight);
+                const y = val >= 0 ? zeroY - h : zeroY;
+                const color = val >= 0 ? '#10b981' : '#ef4444';
+                bars.push(
+                  <g key="pat">
+                    <rect
+                      x={currentX}
+                      y={y}
+                      width={barSlotWidth - 2}
+                      height={h}
+                      rx="3"
+                      fill={color}
+                      opacity={isHovered ? 1 : 0.85}
+                    />
+                    <text
+                      x={currentX + (barSlotWidth - 2) / 2}
+                      y={val >= 0 ? Math.max(16, y - 5) : y + h + 10}
+                      textAnchor="middle"
+                      fill={color}
+                      fontSize="8.5"
+                      fontWeight="600"
+                    >
+                      {formatNumber(val)}
+                    </text>
+                  </g>
+                );
+                currentX += barSlotWidth;
+              }
+
+              return (
+                <g
+                  key={`${row.period}-${colIndex}`}
+                  onMouseEnter={() => setHoveredIdx(colIndex)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {isHovered && (
+                    <rect
+                      x={chartLeft + colIndex * colWidth + 2}
+                      y={chartTop}
+                      width={colWidth - 4}
+                      height={chartBottom - chartTop + 24}
+                      fill="rgba(255, 255, 255, 0.03)"
+                      rx="6"
+                    />
+                  )}
+                  {bars}
+                  <text
+                    x={colCenterX}
+                    y={chartBottom + 16}
+                    textAnchor="middle"
+                    fill={isHovered ? 'var(--text-primary)' : 'var(--text-muted)'}
+                    fontSize="9.5"
+                    fontWeight={isHovered ? 700 : 500}
+                  >
+                    {row.period}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      ) : (
+        /* Financial Table View */
+        <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
+          <table className="chat-table" style={{ minWidth: '700px' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Period</th>
+                <th style={{ textAlign: 'right' }}>Revenue (₹ Cr)</th>
+                <th style={{ textAlign: 'right' }}>Operating Profit</th>
+                <th style={{ textAlign: 'right' }}>Net Profit</th>
+                <th style={{ textAlign: 'right' }}>EBITDA Margin</th>
+                <th style={{ textAlign: 'right' }}>PAT Margin</th>
+                <th style={{ textAlign: 'right' }}>EPS</th>
+                <th style={{ textAlign: 'center' }}>Basis</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parsedRows.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.period}</td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#38bdf8' }}>
+                    {r.revenue != null ? `₹${formatNumber(r.revenue)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#818cf8' }}>
+                    {r.operating != null ? `₹${formatNumber(r.operating)}` : '—'}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: 'right',
+                      fontVariantNumeric: 'tabular-nums',
+                      fontWeight: 600,
+                      color: r.profit != null ? (r.profit >= 0 ? '#10b981' : '#ef4444') : 'var(--text-muted)',
+                    }}
+                  >
+                    {r.profit != null ? `₹${formatNumber(r.profit)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#94a3b8' }}>
+                    {r.opMargin ? `${r.opMargin}%` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#94a3b8' }}>
+                    {r.patMargin ? `${r.patMargin}%` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#fbbf24' }}>
+                    {r.eps != null ? `₹${formatNumber(r.eps)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      {r.basis}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinancialTrendTable({
+  title,
+  data,
+}: {
+  title: string;
+  data: NonNullable<ResearchReport['financials']['quarterlyTrend']>;
+}) {
+  return (
+    <div style={{ marginTop: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <strong style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{title}</strong>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>₹ Cr · sequential quarters</span>
+      </div>
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
+        <table className="chat-table" style={{ minWidth: '700px' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Period</th>
+              <th style={{ textAlign: 'right' }}>Revenue</th>
+              <th style={{ textAlign: 'right' }}>Operating Profit</th>
+              <th style={{ textAlign: 'right' }}>Net Profit</th>
+              <th style={{ textAlign: 'right' }}>EPS</th>
+              <th style={{ textAlign: 'center' }}>Basis</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.slice(-12).map((row, index) => {
+              const rev = parseTrendNum(row.revenue);
+              const op = parseTrendNum(row.operatingProfit ?? row.ebitda);
+              const pat = parseTrendNum(row.profit);
+              const eps = parseTrendNum(row.eps);
+              return (
+                <tr key={`${row.period}-${index}`}>
+                  <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {(row.period || '').replace(/Quarter ending /gi, '')}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#38bdf8' }}>
+                    {rev != null ? `₹${formatNumber(rev)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#818cf8' }}>
+                    {op != null ? `₹${formatNumber(op)}` : '—'}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: 'right',
+                      fontVariantNumeric: 'tabular-nums',
+                      fontWeight: 600,
+                      color: pat != null ? (pat >= 0 ? '#10b981' : '#ef4444') : 'var(--text-muted)',
+                    }}
+                  >
+                    {pat != null ? `₹${formatNumber(pat)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#fbbf24' }}>
+                    {eps != null ? `₹${formatNumber(eps)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: '4px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      {row.basis ?? 'Consolidated'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1023,6 +1612,20 @@ function ValuationTab({
           <InstitutionalMetricCard label="DII (Domestic Inst.)" metric={s.dii} sourceMap={sourceMap} />
           <InstitutionalMetricCard label="Retail & Public" metric={s.public} sourceMap={sourceMap} />
         </div>
+
+        {s.history && s.history.length > 1 && (
+          <div style={{ marginTop: '1.25rem' }}>
+            <h4 style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '0.55rem' }}>Historical ownership changes</h4>
+            <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
+              <table className="chat-table" style={{ minWidth: '620px' }}>
+                <thead><tr><th>Period</th><th>Promoter</th><th>FII</th><th>DII</th><th>Public</th></tr></thead>
+                <tbody>{s.history.map((row, index) => (
+                  <tr key={`${row.period}-${index}`}><td>{row.period}</td><td>{row.promoter == null ? '—' : `${row.promoter}%`}</td><td>{row.fii == null ? '—' : `${row.fii}%`}</td><td>{row.dii == null ? '—' : `${row.dii}%`}</td><td>{row.public == null ? '—' : `${row.public}%`}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {s.pledged && Number(s.pledged.value) > 0 ? (
           <div
@@ -1252,7 +1855,7 @@ function RisksTab({
               {report.growthDrivers.map((driver, i) => (
                 <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   <span style={{ color: 'var(--positive)', marginTop: '0.15rem' }}>●</span>
-                  <span>{typeof driver === 'string' ? driver : (driver as any).driver}</span>
+                  <span>{driver}</span>
                 </li>
               ))}
             </ul>
@@ -1340,6 +1943,7 @@ function TechnicalTab({ report }: { report: ResearchReport }) {
 
 function AuditTab({ report }: { report: ResearchReport }) {
   const dq = report.dataQuality;
+  const [sourcesOpen, setSourcesOpen] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -1376,6 +1980,13 @@ function AuditTab({ report }: { report: ResearchReport }) {
               {dq.confidenceReason}
             </p>
 
+            {dq.basisWarnings && dq.basisWarnings.length > 0 && (
+              <div style={{ marginTop: '1rem', padding: '0.85rem', border: '1px solid rgba(245,158,11,.28)', borderRadius: '8px', background: 'var(--warning-dim)' }}>
+                <strong style={{ display: 'block', color: 'var(--warning)', fontSize: '0.78rem', marginBottom: '0.35rem' }}>Reporting-basis limitations</strong>
+                {dq.basisWarnings.slice(0, 8).map((warning) => <p key={warning} style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', lineHeight: 1.5 }}>• {warning}</p>)}
+              </div>
+            )}
+
             {/* Discrepancies Table */}
             {dq.conflicts && dq.conflicts.length > 0 && (
               <div style={{ marginTop: '1.25rem' }}>
@@ -1411,15 +2022,52 @@ function AuditTab({ report }: { report: ResearchReport }) {
         )}
       </div>
 
+      {/* Metric-level methodology */}
+      {dq?.metricAudit && dq.metricAudit.length > 0 && (
+        <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+            Metric Sources &amp; Calculation Methodology
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            Every value is labelled by reporting period, statement basis and verification state. Missing values are not treated as zero.
+          </p>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
+            <table className="chat-table" style={{ minWidth: '900px' }}>
+              <thead><tr><th>Metric</th><th>Value</th><th>Period / basis</th><th>Status</th><th>Source / methodology</th></tr></thead>
+              <tbody>{dq.metricAudit.map((item, index) => (
+                <tr key={`${item.metric}-${index}`}>
+                  <td>{item.metric}</td>
+                  <td>{item.value == null ? 'Data unavailable' : `${formatNumber(item.value)} ${item.unit}`}</td>
+                  <td>{item.period ?? 'Period unavailable'}{item.basis ? ` · ${item.basis}` : ''}</td>
+                  <td>{item.verificationStatus?.replace(/_/g, ' ') ?? 'unverified'}{item.confidence ? ` · ${item.confidence}` : ''}</td>
+                  <td>
+                    {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{item.sourceName ?? 'Open source'}</a>
+                      : item.formula ? `Calculated: ${item.formula}` : item.verificationStatus === 'not_applicable' ? 'Sector-specific non-applicability' : 'No sufficiently reliable source found'}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Complete Sources Directory */}
       <div className="card" style={{ padding: '1.75rem', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-        <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
-          Sources & Evidence
-        </h3>
-        {report.sources && report.sources.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <button
+          aria-expanded={sourcesOpen}
+          onClick={() => setSourcesOpen((value) => !value)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', textAlign: 'left' }}
+        >
+          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Sources &amp; References ({report.sources?.length ?? 0})
+          </h3>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{sourcesOpen ? '−' : '+'}</span>
+        </button>
+        {sourcesOpen && report.sources && report.sources.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
             {report.sources.map((s, i) => (
               <div
+                id={`report-source-${i + 1}`}
                 key={s.id || i}
                 style={{
                   display: 'flex',
@@ -1453,14 +2101,22 @@ function AuditTab({ report }: { report: ResearchReport }) {
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                     <span style={{ fontFamily: 'var(--font-mono)' }}>{s.domain}</span>
                     {s.sourceType && ` · ${s.sourceType.replace(/_/g, ' ')}`}
+                    {s.authority && ` · ${s.authority} authority`}
+                    {s.publishedAt && ` · Published ${formatDate(s.publishedAt)}`}
+                    {s.retrievedAt && ` · Retrieved ${formatDate(s.retrievedAt)}`}
                   </p>
+                  {s.supportedMetrics && s.supportedMetrics.length > 0 && (
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      Supports: {s.supportedMetrics.join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-        ) : (
+        ) : sourcesOpen ? (
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No external sources recorded.</p>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -1483,9 +2139,18 @@ function InstitutionalMetricCard({
     !metric || metric.value === null || metric.value === undefined || metric.value === '';
 
   const src = metric?.sourceId && sourceMap ? sourceMap.get(metric.sourceId) : null;
+  const sourceNumber = src && sourceMap ? [...sourceMap.keys()].indexOf(src.id) + 1 : null;
+  const statusLabel: Record<string, string> = {
+    verified: 'VERIFIED', cross_checked: 'CROSS-CHECKED', calculated: 'CALCULATED', estimated: 'ESTIMATED',
+    unverified: 'UNVERIFIED', not_reported: 'NOT REPORTED', unavailable: 'UNAVAILABLE', not_applicable: 'NOT APPLICABLE',
+  };
+  const emptyLabel = metric?.verificationStatus === 'not_applicable' ? 'Not applicable'
+    : metric?.verificationStatus === 'not_reported' ? 'Not reported by company'
+      : 'Data currently unavailable — no sufficiently reliable source found.';
 
   return (
     <div
+      className="institutional-metric-card"
       style={{
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border-subtle)',
@@ -1517,12 +2182,25 @@ function InstitutionalMetricCard({
               CALC
             </span>
           )}
+          {metric?.verificationStatus && metric.metricType !== 'calculated' && (
+            <span
+              style={{
+                fontSize: '0.58rem', padding: '0.1rem 0.35rem', borderRadius: '3px',
+                background: metric.verificationStatus === 'verified' || metric.verificationStatus === 'cross_checked' ? 'var(--positive-dim)' : 'var(--warning-dim)',
+                color: metric.verificationStatus === 'verified' || metric.verificationStatus === 'cross_checked' ? 'var(--positive)' : 'var(--warning)',
+                fontFamily: 'var(--font-mono)',
+              }}
+              title={metric.note ?? metric.verificationStatus}
+            >
+              {statusLabel[metric.verificationStatus]}
+            </span>
+          )}
         </div>
 
         <p className="metric-value" style={{ fontSize: '1.25rem', fontWeight: 800 }}>
           {isEmpty ? (
             <span style={{ color: 'var(--text-muted)', fontSize: '0.92rem', fontWeight: 400 }}>
-              Not Disclosed
+              {emptyLabel}
             </span>
           ) : (
             <>
@@ -1556,7 +2234,7 @@ function InstitutionalMetricCard({
           color: 'var(--text-muted)',
         }}
       >
-        <span>{metric?.period || 'Reported'}</span>
+        <span title={metric?.statementType ? `${metric.statementType} statement` : undefined}>{metric?.period || metric?.asOf || 'Period unavailable'}</span>
         {src && (
           <a
             href={src.url}
@@ -1571,8 +2249,13 @@ function InstitutionalMetricCard({
               fontFamily: 'var(--font-mono)',
             }}
           >
-            <span>[{src.id}]</span>
+            <span>[{sourceNumber}]</span>
             <ExternalLink size={9} />
+          </a>
+        )}
+        {!src && metric?.sourceUrl && (
+          <a href={metric.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', textDecoration: 'none', fontFamily: 'var(--font-mono)' }}>
+            <span>{metric.sourceName || 'Source'}</span><ExternalLink size={9} />
           </a>
         )}
       </div>

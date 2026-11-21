@@ -8,9 +8,17 @@ export const FinancialMetricSchema = z.object({
   asOf: z.string().nullable().optional(),
   basis: z.enum(['Consolidated', 'Standalone', 'Unspecified']).optional(),
   sourceId: z.string().nullable().optional(),
-  metricType: z.enum(['reported', 'calculated']).optional(),
+  metricType: z.enum(['reported', 'calculated', 'estimated']).optional(),
   formula: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
+  currency: z.string().nullable().optional(),
+  statementType: z.enum(['consolidated', 'standalone', 'unspecified']).optional(),
+  sourceName: z.string().nullable().optional(),
+  sourceUrl: z.string().nullable().optional(),
+  publicationDate: z.string().nullable().optional(),
+  retrievedAt: z.string().nullable().optional(),
+  verificationStatus: z.enum(['verified', 'cross_checked', 'calculated', 'estimated', 'unverified', 'not_reported', 'unavailable', 'not_applicable']).optional(),
+  confidence: z.enum(['high', 'moderate', 'limited']).optional(),
 });
 
 export const BusinessSegmentSchema = z.object({
@@ -60,6 +68,8 @@ export const ReportSourceSchema = z.object({
   sourceType: z.string().default('other'),
   authority: z.enum(['high', 'medium', 'low']).optional(),
   publishedAt: z.string().nullable().optional(),
+  retrievedAt: z.string().nullable().optional(),
+  supportedMetrics: z.array(z.string()).optional(),
 });
 
 export const ConflictRecordSchema = z.object({
@@ -83,6 +93,8 @@ export const DataQualityReportSchema = z.object({
   missingMetricsCount: z.number().default(0),
   conflicts: z.array(ConflictRecordSchema).default([]),
   missingMetrics: z.array(z.string()).default([]),
+  basisWarnings: z.array(z.string()).optional().default([]),
+  metricAudit: z.array(z.any()).optional(),
 });
 
 export const TechnicalAnalysisSchema = z.object({
@@ -93,11 +105,20 @@ export const TechnicalAnalysisSchema = z.object({
   sma50: z.union([z.string(), z.number(), z.null()]).optional(),
   sma200: z.union([z.string(), z.number(), z.null()]).optional(),
   rsi: z.union([z.string(), z.number(), z.null()]).optional(),
+  macd: z.union([z.string(), z.number(), z.null()]).optional(),
+  macdSignal: z.union([z.string(), z.number(), z.null()]).optional(),
+  volume: z.union([z.string(), z.number(), z.null()]).optional(),
+  averageVolume20d: z.union([z.string(), z.number(), z.null()]).optional(),
+  volumeTrend: z.string().nullable().optional(),
+  support: z.union([z.string(), z.number(), z.null()]).optional(),
+  resistance: z.union([z.string(), z.number(), z.null()]).optional(),
+  priceMomentum20dPct: z.union([z.string(), z.number(), z.null()]).optional(),
   trend: z.string().optional(),
   observations: z.string().optional(),
 });
 
 export const ResearchReportSchema = z.object({
+  reportVersion: z.number().int().optional(),
   company: z.object({
     name: z.string(),
     ticker: z.string(),
@@ -133,6 +154,21 @@ export const ResearchReportSchema = z.object({
     debtToEquity: FinancialMetricSchema.optional(),
     freeCashFlow: FinancialMetricSchema.optional(),
     capex: FinancialMetricSchema.optional(),
+    currentRatio: FinancialMetricSchema.optional(),
+    interestCoverage: FinancialMetricSchema.optional(),
+    totalAssets: FinancialMetricSchema.optional(),
+    totalLiabilities: FinancialMetricSchema.optional(),
+    currentAssets: FinancialMetricSchema.optional(),
+    currentLiabilities: FinancialMetricSchema.optional(),
+    shareholdersEquity: FinancialMetricSchema.optional(),
+    equityCapital: FinancialMetricSchema.optional(),
+    reserves: FinancialMetricSchema.optional(),
+    operatingCashFlow: FinancialMetricSchema.optional(),
+    investingCashFlow: FinancialMetricSchema.optional(),
+    financingCashFlow: FinancialMetricSchema.optional(),
+    interestExpense: FinancialMetricSchema.optional(),
+    ebit: FinancialMetricSchema.optional(),
+    workingCapital: FinancialMetricSchema.optional(),
     quarterlyTrend: z.array(z.any()).optional(),
     annualTrend: z.array(z.any()).optional(),
   }),
@@ -161,6 +197,7 @@ export const ResearchReportSchema = z.object({
     public: FinancialMetricSchema,
     pledged: FinancialMetricSchema.optional(),
     asOfDate: z.string().nullable().optional(),
+    history: z.array(z.any()).optional(),
   }),
   balanceSheetAnalysis: z.string().optional(),
   cashFlowAnalysis: z.string().optional(),
@@ -207,7 +244,6 @@ export function sanitizeReportData(data: Record<string, unknown>, fallbackQuery 
   }
 
   // Ensure metric structures don't have null instead of objects
-  const defaultMetric = { value: null, unit: '', period: null };
   const categories = ['financials', 'profitability', 'valuation', 'shareholding'] as const;
   for (const cat of categories) {
     if (!sanitized[cat] || typeof sanitized[cat] !== 'object') {

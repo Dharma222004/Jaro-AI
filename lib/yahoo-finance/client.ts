@@ -95,6 +95,19 @@ export interface LiveMarketData {
   evRevenue?: number | null;
   weekChange52?: number | null;
 
+  // Calculated from daily historical prices (not LLM-generated)
+  sma20?: number | null;
+  sma50?: number | null;
+  sma200?: number | null;
+  rsi14?: number | null;
+  macd?: number | null;
+  macdSignal?: number | null;
+  support20d?: number | null;
+  resistance20d?: number | null;
+  averageVolume20d?: number | null;
+  volumeTrend?: 'Above average' | 'Below average' | 'In line' | null;
+  priceMomentum20dPct?: number | null;
+
   // Sector/Industry (from assetProfile)
   sector?: string | null;
   industry?: string | null;
@@ -193,10 +206,14 @@ export async function fetchLiveMarketData(
 
   try {
     // Fetch quote (fast) and quoteSummary (deep) in parallel
-    const [quote, summary] = await Promise.all([
+    const [quote, summary, chart] = await Promise.all([
       yf.quote(symbol).catch(() => null),
       yf.quoteSummary(symbol, {
         modules: ['financialData', 'defaultKeyStatistics', 'assetProfile'],
+      }).catch(() => null),
+      yf.chart(symbol, {
+        period1: new Date(Date.now() - 420 * 24 * 60 * 60 * 1000),
+        interval: '1d',
       }).catch(() => null),
     ]);
 
@@ -205,6 +222,10 @@ export async function fetchLiveMarketData(
     const fd = summary?.financialData ?? {};
     const dk = summary?.defaultKeyStatistics ?? {};
     const ap = summary?.assetProfile ?? {};
+    const quotes = Array.isArray(chart?.quotes) ? chart.quotes : [];
+    const closes = quotes.map((item: { close?: number | null }) => item.close).filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value));
+    const volumes = quotes.map((item: { volume?: number | null }) => item.volume).filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value));
+    const technical = calculateTechnicalIndicators(closes, volumes, quote.regularMarketVolume ?? 0);
 
     return {
       symbol,
@@ -270,6 +291,18 @@ export async function fetchLiveMarketData(
       evRevenue: dk.enterpriseToRevenue ?? null,
       weekChange52: dk['52WeekChange'] ?? null,
 
+      sma20: technical.sma20,
+      sma50: technical.sma50,
+      sma200: technical.sma200,
+      rsi14: technical.rsi14,
+      macd: technical.macd,
+      macdSignal: technical.macdSignal,
+      support20d: technical.support20d,
+      resistance20d: technical.resistance20d,
+      averageVolume20d: technical.averageVolume20d,
+      volumeTrend: technical.volumeTrend,
+      priceMomentum20dPct: technical.priceMomentum20dPct,
+
       // Company profile
       sector: ap.sector ?? null,
       industry: ap.industry ?? null,
@@ -282,6 +315,73 @@ export async function fetchLiveMarketData(
     console.warn('[yahoo-finance] Failed to fetch data for', symbol, ':', err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+function calculateTechnicalIndicators(closes: number[], volumes: number[], currentVolume: number) {
+  const average = (values: number[], period: number): number | null => {
+    if (period <= 0 || values.length < period) return null;
+    const slice = values.slice(-period);
+    return slice.reduce((sum, value) => sum + value, 0) / period;
+  };
+  const emaSeries = (values: number[], period: number): number[] => {
+    if (values.length < period) return [];
+    const multiplier = 2 / (period + 1);
+    let ema = values.slice(0, period).reduce((sum, value) => sum + value, 0) / period;
+    const output = [ema];
+    for (const value of values.slice(period)) {
+      ema = (value - ema) * multiplier + ema;
+      output.push(ema);
+    }
+    return output;
+  };
+  const round = (value: number | null, decimals = 2) => value == null ? null : Math.round(value * 10 ** decimals) / 10 ** decimals;
+
+  let rsi14: number | null = null;
+  if (closes.length >= 15) {
+    const recent = closes.slice(-15);
+    let gains = 0;
+    let losses = 0;
+    for (let i = 1; i < recent.length; i += 1) {
+      const change = recent[i] - recent[i - 1];
+      if (change >= 0) gains += change;
+      else losses += Math.abs(change);
+    }
+    const averageGain = gains / 14;
+    const averageLoss = losses / 14;
+    rsi14 = averageLoss === 0 ? 100 : 100 - (100 / (1 + averageGain / averageLoss));
+  }
+
+  const ema12 = emaSeries(closes, 12);
+  const ema26 = emaSeries(closes, 26);
+  const alignment = Math.min(ema12.length, ema26.length);
+  const aligned12 = ema12.slice(-alignment);
+  const aligned26 = ema26.slice(-alignment);
+  const macdSeries = alignment > 0 ? aligned12.map((value, index) => value - aligned26[index]) : [];
+  const signalSeries = emaSeries(macdSeries, 9);
+  const recentCloses = closes.slice(-20);
+  const averageVolume20d = average(volumes, Math.min(20, volumes.length));
+  const momentum = closes.length >= 20 && closes[closes.length - 20] !== 0
+    ? ((closes[closes.length - 1] - closes[closes.length - 20]) / closes[closes.length - 20]) * 100
+    : null;
+  let volumeTrend: 'Above average' | 'Below average' | 'In line' | null = null;
+  if (averageVolume20d && currentVolume) {
+    const ratio = currentVolume / averageVolume20d;
+    volumeTrend = ratio > 1.2 ? 'Above average' : ratio < 0.8 ? 'Below average' : 'In line';
+  }
+
+  return {
+    sma20: round(average(closes, 20)),
+    sma50: round(average(closes, 50)),
+    sma200: round(average(closes, 200)),
+    rsi14: round(rsi14, 1),
+    macd: round(macdSeries.length ? macdSeries[macdSeries.length - 1] : null),
+    macdSignal: round(signalSeries.length ? signalSeries[signalSeries.length - 1] : null),
+    support20d: recentCloses.length ? round(Math.min(...recentCloses)) : null,
+    resistance20d: recentCloses.length ? round(Math.max(...recentCloses)) : null,
+    averageVolume20d: round(averageVolume20d, 0),
+    volumeTrend,
+    priceMomentum20dPct: round(momentum, 1),
+  };
 }
 
 /** Format large INR numbers with Cr/Lakh suffixes */
@@ -303,4 +403,51 @@ export function formatPct(value: number | null | undefined, decimals = 1): strin
 export function formatRatio(value: number | null | undefined, decimals = 1): string {
   if (value == null || isNaN(value)) return 'N/A';
   return `${value.toFixed(decimals)}x`;
+}
+
+/**
+ * Fetch daily historical candles from Yahoo Finance as a high-reliability fallback
+ */
+export async function fetchYahooHistoricalCandles(
+  ticker: string,
+  exchange: 'NSE' | 'BSE' = 'NSE',
+  from?: Date,
+): Promise<Array<{
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  openInterest: number;
+}>> {
+  try {
+    const yf = getYF();
+    const symbol = await resolveYahooSymbol(ticker, exchange);
+    if (!symbol) return [];
+
+    const period1 = from ?? new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+    const chart = await yf.chart(symbol, {
+      period1,
+      interval: '1d',
+    }).catch(() => null);
+
+    const quotes = Array.isArray(chart?.quotes) ? chart.quotes : [];
+    return quotes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((q: any) => q && q.date && Number.isFinite(q.close) && Number.isFinite(q.open))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((q: any) => ({
+        timestamp: new Date(q.date).toISOString(),
+        open: Number(q.open),
+        high: Number(q.high ?? q.close),
+        low: Number(q.low ?? q.close),
+        close: Number(q.close),
+        volume: Number(q.volume ?? 0),
+        openInterest: 0,
+      }));
+  } catch (err) {
+    console.warn('[yahoo-finance] Historical candles fallback failed:', err);
+    return [];
+  }
 }

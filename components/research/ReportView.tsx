@@ -915,9 +915,12 @@ function parseTrendNum(val: unknown): number | null {
   if (typeof val === 'number') return Number.isFinite(val) ? val : null;
   const str = String(val).trim();
   if (/^(?:—|-|n\/a|null|undefined)$/i.test(str)) return null;
-  const cleaned = str.replace(/[₹,%()\s]/g, '').replace(/,/g, '');
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? (str.includes('(') && n > 0 ? -n : n) : null;
+  const isNegative = str.includes('(') || /-\s*\d/.test(str);
+  const match = str.replace(/,/g, '').match(/[-+]?\d*\.?\d+/);
+  if (!match) return null;
+  const n = parseFloat(match[0]);
+  if (!Number.isFinite(n)) return null;
+  return isNegative && n > 0 ? -n : n;
 }
 
 function FinancialTrendChart({

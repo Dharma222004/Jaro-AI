@@ -12,7 +12,11 @@ export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    const query = typeof body.message === 'string' && body.message.trim()
+      ? body.message.trim()
+      : typeof body.query === 'string'
+        ? body.query.trim()
+        : '';
     if (!query) return NextResponse.json({ error: 'A research question is required.' }, { status: 400 });
     if (query.length > 2_000) return NextResponse.json({ error: 'The question is too long.' }, { status: 400 });
 
@@ -127,7 +131,12 @@ export async function POST(request: NextRequest) {
             history,
             context,
             callbacks: {
-              onStage: (stage, status, detail) => send({ type: 'stage', stage, status, detail }),
+              onStage: (stage, status, detail) => send({
+                type: 'stage',
+                stage: { id: stage, status, detail },
+                status,
+                detail,
+              }),
               onIntent: (nextClassification) => { classification = nextClassification; send({ type: 'intent', classification: nextClassification }); },
               onContext: (nextContext) => { latestContext = nextContext; send({ type: 'context', context: nextContext }); },
               onSources: (sources) => {
@@ -155,7 +164,10 @@ export async function POST(request: NextRequest) {
                 };
                 return (delta: string) => {
                   const sanitized = sanitizeDelta(delta);
-                  if (sanitized) send({ type: 'delta', delta: sanitized });
+                  if (sanitized) {
+                    send({ type: 'token', text: sanitized, delta: sanitized });
+                    send({ type: 'delta', delta: sanitized, text: sanitized });
+                  }
                 };
               })(),
               onSuggestions: (suggestions) => send({ type: 'suggestions', suggestions }),
@@ -198,7 +210,14 @@ export async function POST(request: NextRequest) {
               console.warn('[/api/chat] Post-response memory extraction non-fatal error:', err);
             }
           }
-          send({ type: 'done', dataTimestamp: new Date().toISOString() });
+          const ts = new Date().toISOString();
+          send({ type: 'done', dataTimestamp: ts });
+          send({
+            type: 'complete',
+            dataTimestamp: ts,
+            intent: classification?.intent,
+            artifact: latestArtifact,
+          });
         } catch (error) {
           console.error('[/api/chat] Conversational research failed:', error);
           send({

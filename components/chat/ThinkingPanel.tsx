@@ -115,17 +115,14 @@ export function ThinkingPanel({ stages, sources, isStreaming, startedAt }: Think
             <Sparkles size={13} className="thinking-complete-icon" />
           )}
           <span className="thinking-compact-status">
-            {isStreaming ? (
-              <>
-                <span className="thinking-current-action">{activeLabel}</span>
-                {displayElapsed > 0 && <span className="thinking-compact-time">({displayElapsed.toFixed(1)}s)</span>}
-              </>
-            ) : (
-              <>
-                <span className="thinking-done-text">Thought</span>
-                {displayElapsed > 0 && <span className="thinking-compact-time">for {displayElapsed.toFixed(1)}s</span>}
-                {sources.length > 0 && <span className="thinking-sources-badge">· {sources.length} sources</span>}
-              </>
+            <span className="thinking-done-text">Thought</span>
+            {displayElapsed > 0 && (
+              <span className="thinking-compact-time">
+                {isStreaming ? `(${displayElapsed.toFixed(1)}s)` : `for ${displayElapsed.toFixed(1)}s`}
+              </span>
+            )}
+            {!isStreaming && sources.length > 0 && (
+              <span className="thinking-sources-badge">· {sources.length} sources</span>
             )}
           </span>
         </div>

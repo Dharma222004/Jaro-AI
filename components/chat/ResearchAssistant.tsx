@@ -242,6 +242,7 @@ export function ResearchAssistant() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          query,
           message: query,
           history: priorHistory,
           context: requestContext,
@@ -274,15 +275,19 @@ export function ResearchAssistant() {
           try {
             const event = JSON.parse(raw);
             if (event.type === 'stage') {
+              const stageObj = event.stage && typeof event.stage === 'object'
+                ? event.stage
+                : { id: event.stage, status: event.status ?? 'completed', detail: event.detail };
               updateMessage(conversationId, assistantId, (message) => ({
                 ...message,
                 stages: [
-                  ...(message.stages ?? []).filter((s) => s.id !== event.stage.id),
-                  event.stage,
+                  ...(message.stages ?? []).filter((s) => s.id !== stageObj.id),
+                  stageObj,
                 ],
               }));
-            } else if (event.type === 'token') {
-              accumulated += event.text;
+            } else if (event.type === 'token' || event.type === 'delta') {
+              const textPiece = event.text ?? event.delta ?? '';
+              accumulated += textPiece;
               if (contentFrame == null) {
                 contentFrame = requestAnimationFrame(flushContent);
               }
@@ -290,7 +295,7 @@ export function ResearchAssistant() {
               updateMessage(conversationId, assistantId, { sources: event.sources });
             } else if (event.type === 'artifact') {
               updateMessage(conversationId, assistantId, { artifact: event.artifact });
-            } else if (event.type === 'complete') {
+            } else if (event.type === 'complete' || event.type === 'done') {
               flushContent();
               updateMessage(conversationId, assistantId, {
                 status: 'complete',
@@ -299,7 +304,7 @@ export function ResearchAssistant() {
                 dataTimestamp: event.dataTimestamp,
               });
             } else if (event.type === 'error') {
-              throw new Error(event.message || 'Stream received error signal.');
+              throw new Error(event.message || event.error || 'Stream received error signal.');
             }
           } catch (parseError) {
             console.warn('[Research Stream Parse Error]', parseError);
@@ -321,7 +326,10 @@ export function ResearchAssistant() {
       if (contentFrame != null) cancelAnimationFrame(contentFrame);
       abortRef.current = null;
       setIsStreaming(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      // Only focus on desktop/non-touch to prevent keyboard viewport jump on mobile
+      if (typeof window !== 'undefined' && !window.matchMedia('(pointer: coarse)').matches) {
+        inputRef.current?.focus();
+      }
     }
   }, [current, isStreaming, memoryEnabled, pendingAttachments, updateConversation, updateMessage]);
 
@@ -478,7 +486,7 @@ export function ResearchAssistant() {
               event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 140)}px`;
             }}
             rows={1}
-            placeholder="Ask about Indian stocks, financials, technicals, or portfolio..."
+            placeholder="Ask me anything about stocks, companies, markets or your portfolio..."
             disabled={isStreaming}
             aria-label="Ask Jaro AI"
             enterKeyHint="send"

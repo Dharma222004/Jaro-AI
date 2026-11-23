@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookMarked, BrainCircuit, ChevronLeft, ChevronRight, Clock3, Menu, NotebookTabs, Plus, Search, X } from 'lucide-react';
+import { BookMarked, BrainCircuit, ChevronLeft, ChevronRight, Clock3, Menu, MessageSquarePlus, NotebookTabs, Plus, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { JaroLogo } from '@/components/brand/JaroLogo';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
@@ -89,11 +89,10 @@ export function Sidebar() {
             onClick={handleMobileNewChat}
             className="btn-mobile-new"
             aria-label="New chat"
-            title="Start new conversation"
+            title="New chat"
             type="button"
           >
-            <Plus size={14} strokeWidth={2.4} />
-            <span>New</span>
+            <MessageSquarePlus size={18} strokeWidth={2.2} />
           </button>
           <ThemeToggle size="sm" />
           <button

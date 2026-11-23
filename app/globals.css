@@ -3911,14 +3911,20 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 
 .markdown-answer p,
 .markdown-answer li,
-.markdown-answer td,
-.markdown-answer th,
 .source-grid strong,
-.report-view p,
-.report-view td,
-.report-view th {
+.report-view p {
   overflow-wrap: anywhere;
   word-break: normal;
+}
+
+.markdown-answer td,
+.markdown-answer th,
+.report-view td,
+.report-view th {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  word-wrap: normal !important;
+  hyphens: none !important;
 }
 
 .chat-table-wrap,
@@ -8751,10 +8757,10 @@ code, pre, kbd, samp, .font-mono,
   overflow-x: auto !important;
   -webkit-overflow-scrolling: touch !important;
   margin: 1rem 0 1.25rem !important;
-  border: 1px solid #263244 !important;
+  border: 1px solid var(--border-default) !important;
   border-radius: 12px !important;
-  background: #111827 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+  background: var(--bg-surface) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
 }
 
 .chat-table {
@@ -8768,26 +8774,26 @@ code, pre, kbd, samp, .font-mono,
 
 .chat-table th {
   padding: 0.75rem 1rem !important;
-  background: #172231 !important;
-  color: #94a3b8 !important;
+  background: var(--bg-elevated) !important;
+  color: var(--text-secondary) !important;
   font-size: 0.7rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
-  border-bottom: 1px solid #263244 !important;
+  border-bottom: 1px solid var(--border-default) !important;
   white-space: nowrap !important;
   vertical-align: middle !important;
 }
 
 .chat-table td {
   padding: 0.75rem 1rem !important;
-  color: #cbd5e1 !important;
-  border-bottom: 1px solid #1c2838 !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
   vertical-align: top !important;
   white-space: normal !important;
   word-break: normal !important;
   word-wrap: normal !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
   hyphens: none !important;
   -webkit-hyphens: none !important;
 }
@@ -8802,25 +8808,27 @@ code, pre, kbd, samp, .font-mono,
 
 /* ── 3-Column Deterministic Trade Plan Table Layout ── */
 .chat-table-trade-plan {
-  min-width: 650px !important;
+  min-width: 680px !important;
+  width: 100% !important;
+  table-layout: auto !important;
 }
 
 .chat-table-trade-plan th:first-child,
 .chat-table-trade-plan td:first-child {
-  width: 28% !important;
-  min-width: 190px !important;
+  width: 32% !important;
+  min-width: 210px !important;
   font-weight: 600 !important;
-  color: #f1f5f9 !important;
+  color: var(--text-primary) !important;
   white-space: normal !important;
   text-align: left !important;
 }
 
 .chat-table-trade-plan th:nth-child(2),
 .chat-table-trade-plan td:nth-child(2) {
-  width: 26% !important;
+  width: 24% !important;
   min-width: 160px !important;
   font-weight: 700 !important;
-  color: #38bdf8 !important;
+  color: var(--accent) !important;
   white-space: normal !important;
   font-variant-numeric: tabular-nums !important;
   text-align: right !important;
@@ -8828,9 +8836,9 @@ code, pre, kbd, samp, .font-mono,
 
 .chat-table-trade-plan th:nth-child(3),
 .chat-table-trade-plan td:nth-child(3) {
-  width: 46% !important;
-  min-width: 250px !important;
-  color: #94a3b8 !important;
+  width: 44% !important;
+  min-width: 270px !important;
+  color: var(--text-secondary) !important;
   line-height: 1.5 !important;
   white-space: normal !important;
   text-align: left !important;
@@ -8838,29 +8846,32 @@ code, pre, kbd, samp, .font-mono,
 
 /* ── 6-Column QTVT Gate Audit Table Layout ── */
 .chat-table-gate-audit {
-  min-width: 840px !important;
+  min-width: 960px !important;
+  width: 100% !important;
+  table-layout: auto !important;
 }
 
 .chat-table-gate-audit th:first-child,
 .chat-table-gate-audit td:first-child {
-  width: 65px !important;
-  min-width: 60px !important;
+  width: 70px !important;
+  min-width: 65px !important;
   text-align: center !important;
   white-space: nowrap !important;
   font-family: var(--font-mono), monospace !important;
   font-weight: 700 !important;
-  color: #94a3b8 !important;
+  color: var(--text-muted) !important;
 }
 
 .chat-table-gate-audit th:nth-child(2),
 .chat-table-gate-audit td:nth-child(2) {
-  width: 22% !important;
-  min-width: 180px !important;
+  width: 25% !important;
+  min-width: 240px !important;
   font-weight: 600 !important;
-  color: #f8fafc !important;
+  color: var(--text-primary) !important;
   white-space: normal !important;
   word-break: normal !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
+  hyphens: none !important;
   letter-spacing: 0.01em !important;
   text-align: left !important;
 }
@@ -8868,7 +8879,7 @@ code, pre, kbd, samp, .font-mono,
 .chat-table-gate-audit th:nth-child(3),
 .chat-table-gate-audit td:nth-child(3) {
   width: 100px !important;
-  min-width: 90px !important;
+  min-width: 95px !important;
   text-align: center !important;
   white-space: nowrap !important;
 }
@@ -8876,24 +8887,30 @@ code, pre, kbd, samp, .font-mono,
 .chat-table-gate-audit th:nth-child(4),
 .chat-table-gate-audit td:nth-child(4) {
   width: 17% !important;
-  min-width: 140px !important;
+  min-width: 150px !important;
   font-variant-numeric: tabular-nums !important;
   text-align: left !important;
+  white-space: normal !important;
+  word-break: normal !important;
 }
 
 .chat-table-gate-audit th:nth-child(5),
 .chat-table-gate-audit td:nth-child(5) {
   width: 18% !important;
-  min-width: 150px !important;
+  min-width: 160px !important;
   text-align: left !important;
+  white-space: normal !important;
+  word-break: normal !important;
 }
 
 .chat-table-gate-audit th:nth-child(6),
 .chat-table-gate-audit td:nth-child(6) {
   width: 28% !important;
-  min-width: 220px !important;
-  line-height: 1.45 !important;
+  min-width: 240px !important;
+  line-height: 1.5 !important;
   text-align: left !important;
+  white-space: normal !important;
+  word-break: normal !important;
 }
 
 /* ── Inline Gate Status Badges in Tables ── */
@@ -9104,15 +9121,15 @@ code, pre, kbd, samp, .font-mono,
   width: 100% !important;
   margin: 0.4rem 0 0.85rem !important;
   border-radius: 10px !important;
-  border: 1px solid #263244 !important;
-  background: #111827 !important;
+  border: 1px solid var(--border-default) !important;
+  background: var(--bg-surface) !important;
   overflow: hidden !important;
   transition: all 0.2s ease !important;
 }
 
 .thinking-compact-container.is-processing {
-  border-color: rgba(56, 189, 248, 0.3) !important;
-  background: rgba(15, 23, 42, 0.8) !important;
+  border-color: var(--accent) !important;
+  background: var(--bg-surface) !important;
 }
 
 .thinking-compact-header {
@@ -9123,7 +9140,7 @@ code, pre, kbd, samp, .font-mono,
   padding: 0.45rem 0.75rem !important;
   background: transparent !important;
   border: none !important;
-  color: #cbd5e1 !important;
+  color: var(--text-primary) !important;
   font-size: 0.78rem !important;
   font-weight: 600 !important;
   cursor: pointer !important;
@@ -9139,13 +9156,13 @@ code, pre, kbd, samp, .font-mono,
 }
 
 .thinking-spin-icon {
-  color: #38bdf8 !important;
+  color: var(--accent) !important;
   animation: spin 1s linear infinite !important;
   flex-shrink: 0 !important;
 }
 
 .thinking-complete-icon {
-  color: #38bdf8 !important;
+  color: var(--accent) !important;
   flex-shrink: 0 !important;
 }
 
@@ -9157,24 +9174,24 @@ code, pre, kbd, samp, .font-mono,
 }
 
 .thinking-current-action {
-  color: #38bdf8 !important;
+  color: var(--accent) !important;
   font-weight: 600 !important;
 }
 
 .thinking-compact-time {
-  color: #94a3b8 !important;
+  color: var(--text-muted) !important;
   font-size: 0.72rem !important;
   margin-left: 0.35rem !important;
 }
 
 .thinking-sources-badge {
-  color: #94a3b8 !important;
+  color: var(--text-muted) !important;
   font-size: 0.72rem !important;
   margin-left: 0.3rem !important;
 }
 
 .thinking-compact-right {
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   display: flex !important;
   align-items: center !important;
   flex-shrink: 0 !important;
@@ -9183,8 +9200,8 @@ code, pre, kbd, samp, .font-mono,
 
 .thinking-compact-drawer {
   padding: 0.6rem 0.75rem 0.75rem !important;
-  border-top: 1px solid #1c2838 !important;
-  background: rgba(13, 18, 28, 0.5) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  background: var(--bg-elevated) !important;
 }
 
 .thinking-mini-steps {

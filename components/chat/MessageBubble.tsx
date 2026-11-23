@@ -158,9 +158,6 @@ export function MessageBubble({ message, copied, onCopy, onSuggestion, onRetry }
 
   return (
     <div className={`message-row assistant-message ${isError ? 'has-error' : ''} ${isStreaming ? 'is-streaming' : ''}`}>
-      <div className="assistant-avatar" aria-hidden="true">
-        <JaroLogo variant="compact" />
-      </div>
       <div className="assistant-answer">
         {message.artifact && <ArtifactSummary artifact={message.artifact} />}
 

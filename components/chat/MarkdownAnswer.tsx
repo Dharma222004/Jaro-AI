@@ -63,29 +63,36 @@ export function MarkdownAnswer({
       ].filter(Boolean).join(' ');
 
       nodes.push(
-        <div className="chat-table-wrap" key={`table-${index}`}>
-          <table className={tableClasses}>
-            <thead>
-              <tr>
-                {headers.map((header, cellIndex) => (
-                  <th key={cellIndex} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
-                    {inline(header, citationScope, onCitationClick)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {headers.map((_, cellIndex) => (
-                    <td key={cellIndex} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
-                      {inline(row[cellIndex] ?? '', citationScope, onCitationClick)}
-                    </td>
+        <div className="chat-table-container" key={`table-${index}`}>
+          {headers.length >= 4 && (
+            <div className="table-scroll-hint" aria-hidden="true">
+              <span>← Swipe to view all {headers.length} columns →</span>
+            </div>
+          )}
+          <div className="chat-table-wrap">
+            <table className={tableClasses}>
+              <thead>
+                <tr>
+                  {headers.map((header, cellIndex) => (
+                    <th key={cellIndex} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
+                      {inline(header, citationScope, onCitationClick)}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {headers.map((_, cellIndex) => (
+                      <td key={cellIndex} style={{ textAlign: alignments[cellIndex] ?? 'left' }}>
+                        {inline(row[cellIndex] ?? '', citationScope, onCitationClick)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>,
       );
       continue;
@@ -99,56 +106,80 @@ export function MarkdownAnswer({
         code.push(lines[index]);
         index += 1;
       }
-      if (index < lines.length) index += 1;
-      nodes.push(<pre className="chat-code-block" data-language={language || undefined} key={`code-${index}`}><code>{code.join('\n')}</code></pre>);
+      if (index < lines.length && /^```/.test(lines[index].trim())) index += 1;
+      nodes.push(
+        <div className="chat-code-block" key={`code-${index}`}>
+          {language && <div className="code-lang-tag">{language}</div>}
+          <pre><code>{code.join('\n')}</code></pre>
+        </div>,
+      );
       continue;
     }
 
-    if (/^###\s+/.test(line)) nodes.push(<h3 key={index}>{inline(line.replace(/^###\s+/, ''), citationScope, onCitationClick)}</h3>);
-    else if (/^##\s+/.test(line)) nodes.push(<h2 key={index}>{inline(line.replace(/^##\s+/, ''), citationScope, onCitationClick)}</h2>);
-    else if (/^#\s+/.test(line)) nodes.push(<h1 key={index}>{inline(line.replace(/^#\s+/, ''), citationScope, onCitationClick)}</h1>);
-    else if (/^>\s?/.test(line)) {
-      const quote: string[] = [];
-      while (index < lines.length && /^>\s?/.test(lines[index])) {
-        quote.push(lines[index].replace(/^>\s?/, ''));
-        index += 1;
-      }
-      nodes.push(<blockquote key={`quote-${index}`}>{inline(quote.join(' '), citationScope, onCitationClick)}</blockquote>);
-      continue;
-    } else if (isListLine(line)) {
-      const parsed = parseListBlock(lines, index);
-      nodes.push(<React.Fragment key={`list-${index}`}>{renderLists(parsed.items, `list-${index}`, citationScope, onCitationClick)}</React.Fragment>);
-      index = parsed.nextIndex;
-      continue;
-    } else if (/^---+$/.test(line.trim())) nodes.push(<hr key={index} />);
-    else {
-      const paragraph: string[] = [line.trim()];
+    const heading = line.trim().match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const text = heading[2];
+      const HeadingTag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4';
+      nodes.push(<HeadingTag key={`h-${index}`}>{inline(text, citationScope, onCitationClick)}</HeadingTag>);
       index += 1;
-      while (index < lines.length && lines[index].trim() && !isBlockStart(lines, index)) {
-        paragraph.push(lines[index].trim());
-        index += 1;
-      }
-      nodes.push(<p key={`paragraph-${index}`}>{inline(paragraph.join(' '), citationScope, onCitationClick)}</p>);
       continue;
     }
+
+    if (/^---+$|^\*\*\*+$/.test(line.trim())) {
+      nodes.push(<hr className="chat-divider" key={`hr-${index}`} />);
+      index += 1;
+      continue;
+    }
+
+    if (isListLine(line)) {
+      const { items, nextIndex } = parseListBlock(lines, index);
+      nodes.push(...renderLists(items, `list-${index}`, citationScope, onCitationClick));
+      index = nextIndex;
+      continue;
+    }
+
+    const paragraphLines: string[] = [line];
     index += 1;
+    while (index < lines.length && lines[index].trim() && !isBlockStart(lines, index)) {
+      paragraphLines.push(lines[index]);
+      index += 1;
+    }
+
+    nodes.push(
+      <p key={`p-${index}`}>
+        {paragraphLines.map((pLine, pIdx) => (
+          <React.Fragment key={pIdx}>
+            {pIdx > 0 && ' '}
+            {inline(pLine, citationScope, onCitationClick)}
+          </React.Fragment>
+        ))}
+      </p>,
+    );
   }
 
   return <div className="markdown-answer">{nodes}</div>;
 }
 
-function ResearchImage({ src, alt, caption }: { src: string; alt: string; caption?: string }) {
+function ResearchImage({ alt, caption, src }: { alt: string; caption?: string; src: string }) {
+  const [failed, setFailed] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
-  const [error, setError] = React.useState(false);
+
+  if (failed) return null;
+
   return (
-    <figure className={`research-image ${loaded ? 'loaded' : ''} ${error ? 'error' : ''}`}>
-      {!loaded && !error && <span>Loading image…</span>}
-      {error ? <span>Image could not be loaded.</span> : (
-        <a href={src} target="_blank" rel="noopener noreferrer" aria-label={`Open ${alt}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- Research sources are dynamic and may not support the Next image optimizer. */}
-          <img src={src} alt={alt} loading="lazy" onLoad={() => setLoaded(true)} onError={() => setError(true)} />
-        </a>
-      )}
+    <figure className="chat-figure">
+      <div className={`research-image-wrapper ${loaded ? 'is-loaded' : 'is-loading'}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt={alt}
+          className="research-image"
+          loading="lazy"
+          onError={() => setFailed(true)}
+          onLoad={() => setLoaded(true)}
+          src={src}
+        />
+      </div>
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   );
@@ -156,7 +187,7 @@ function ResearchImage({ src, alt, caption }: { src: string; alt: string; captio
 
 function isBlockStart(lines: string[], index: number): boolean {
   const line = lines[index];
-  return /^(#{1,3}\s+|>\s?|```|---+$)/.test(line.trim())
+  return /^(#{1,4}\s+|>\s?|```|---+$|\*\*\*+$)/.test(line.trim())
     || isListLine(line)
     || (line.trim().startsWith('|') && /^\s*\|?[\s:|-]+\|\s*$/.test(lines[index + 1] ?? ''));
 }
@@ -240,6 +271,7 @@ function inline(text: string, citationScope?: string, onCitationClick?: (sourceN
     }
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
     if (link) return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer">{link[1]}</a>;
+
     const citation = part.match(/^\[(\d+)\]$/);
     if (citation) {
       const sourceNumber = Number(citation[1]);
@@ -253,12 +285,15 @@ function inline(text: string, citationScope?: string, onCitationClick?: (sourceN
             event.preventDefault();
             onCitationClick(sourceNumber);
           }}
+          title={`View source [${sourceNumber}]`}
         >
-          {part}
+          {sourceNumber}
         </a>
       );
     }
-    if (/^\[[a-zA-Z][a-zA-Z0-9_-]*\]$/.test(part)) return <span className="source-citation" key={index}>{part}</span>;
+    if (/^\[[a-zA-Z][a-zA-Z0-9_-]*\]$/.test(part)) {
+      return <span className="source-citation" key={index}>{part.slice(1, -1)}</span>;
+    }
     return <React.Fragment key={index}>{part}</React.Fragment>;
   });
 }

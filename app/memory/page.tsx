@@ -382,66 +382,49 @@ export default function MemoryPage() {
       )}
 
       {/* Header */}
-      <header className="section-page-header memory-page-header" style={{ marginBottom: '1.5rem' }}>
+      <header className="section-page-header memory-page-header">
         <span className="section-eyebrow">Production Intelligence Layer</span>
-        <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0.2rem 0' }}>Memory & Document Intelligence</h1>
-        <p style={{ color: 'rgba(148, 163, 184, 0.9)', fontSize: '0.8rem', margin: 0 }}>
+        <h1 className="memory-page-title">Memory &amp; Document Intelligence</h1>
+        <p className="memory-page-desc">
           Persistent 3-tier memory architecture (In-Context, Episodic, Long-Term) and document knowledge base (RAG).
         </p>
       </header>
 
       {/* Top Controls Toolbar */}
-      <div
-        className="card"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          padding: '0.9rem 1.2rem',
-          marginBottom: '1.5rem',
-          borderRadius: '12px',
-          background: 'rgba(15, 23, 42, 0.7)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <BrainCircuit size={20} color="#38bdf8" />
+      <div className="card memory-status-card">
+        <div className="memory-status-info">
+          <BrainCircuit size={22} className="text-accent" />
           <div>
-            <strong style={{ fontSize: '0.85rem', display: 'block' }}>
-              Memory System is {enabled ? 'Active' : 'Disabled'}
+            <strong className="memory-status-title">
+              Memory System: {enabled ? 'Active' : 'Disabled'}
             </strong>
-            <span style={{ fontSize: '0.68rem', color: 'rgba(148, 163, 184, 0.8)' }}>
-              {enabled ? 'Context and documents ground every AI research task' : 'No memory injected into prompts'}
+            <span className="memory-status-note">
+              {enabled ? 'Verified ground context & document retrieval connected' : 'Memory injection paused for research'}
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="memory-action-buttons-grid">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary memory-action-btn"
             onClick={toggleEnabled}
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
           >
             {enabled ? 'Disable' : 'Enable'}
           </button>
 
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary memory-action-btn"
             onClick={handleExport}
             title="Download full JSON backup of memories and documents"
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
           >
             <Download size={13} />
             <span>Export Backup</span>
           </button>
 
           <label
-            className="btn btn-secondary"
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', margin: 0 }}
+            className="btn btn-secondary memory-action-btn memory-restore-label"
           >
             <Upload size={13} />
             <span>Restore Backup</span>
@@ -456,10 +439,9 @@ export default function MemoryPage() {
 
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary memory-action-btn"
             onClick={refreshAll}
             disabled={loading}
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
@@ -467,105 +449,66 @@ export default function MemoryPage() {
         </div>
       </div>
 
-      {/* 4-Tier Navigation Tabs */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '0.5rem',
-          marginBottom: '1.25rem',
-        }}
-      >
+      {/* 4-Tier Navigation Tabs — Adaptive 2-col on mobile, 4-col on desktop */}
+      <div className="memory-categories-grid" role="tablist" aria-label="Memory categories">
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'in_context'}
           onClick={() => { setActiveTab('in_context'); setSearchQuery(''); }}
-          style={{
-            padding: '0.75rem 0.5rem',
-            borderRadius: '10px',
-            border: activeTab === 'in_context' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-            background: activeTab === 'in_context' ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.5)',
-            color: activeTab === 'in_context' ? '#38bdf8' : 'rgba(148, 163, 184, 0.85)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-          }}
+          className={`memory-category-card ${activeTab === 'in_context' ? 'is-active' : ''}`}
         >
-          <Layers size={16} />
-          <span>In-Context Memory</span>
+          <div className="category-card-top">
+            <Layers size={17} className="category-icon" />
+            <span className="category-count">{workingMemories.length}</span>
+          </div>
+          <span className="category-title">In-Context Memory</span>
+          <span className="category-desc">Active session context</span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'episodic'}
           onClick={() => { setActiveTab('episodic'); setSearchQuery(''); }}
-          style={{
-            padding: '0.75rem 0.5rem',
-            borderRadius: '10px',
-            border: activeTab === 'episodic' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-            background: activeTab === 'episodic' ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.5)',
-            color: activeTab === 'episodic' ? '#38bdf8' : 'rgba(148, 163, 184, 0.85)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-          }}
+          className={`memory-category-card ${activeTab === 'episodic' ? 'is-active' : ''}`}
         >
-          <Clock size={16} />
-          <span>Episodic Memory</span>
+          <div className="category-card-top">
+            <Clock size={17} className="category-icon" />
+            <span className="category-count">{episodes.length}</span>
+          </div>
+          <span className="category-title">Episodic Memory</span>
+          <span className="category-desc">Task &amp; trade episodes</span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'long_term'}
           onClick={() => { setActiveTab('long_term'); setSearchQuery(''); }}
-          style={{
-            padding: '0.75rem 0.5rem',
-            borderRadius: '10px',
-            border: activeTab === 'long_term' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-            background: activeTab === 'long_term' ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.5)',
-            color: activeTab === 'long_term' ? '#38bdf8' : 'rgba(148, 163, 184, 0.85)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-          }}
+          className={`memory-category-card ${activeTab === 'long_term' ? 'is-active' : ''}`}
         >
-          <Sparkles size={16} />
-          <span>Long-Term Memory</span>
+          <div className="category-card-top">
+            <Sparkles size={17} className="category-icon" />
+            <span className="category-count">{ltmList.length}</span>
+          </div>
+          <span className="category-title">Long-Term Memory</span>
+          <span className="category-desc">Rules &amp; preferences</span>
         </button>
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeTab === 'documents'}
           onClick={() => { setActiveTab('documents'); setSearchQuery(''); }}
-          style={{
-            padding: '0.75rem 0.5rem',
-            borderRadius: '10px',
-            border: activeTab === 'documents' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-            background: activeTab === 'documents' ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.5)',
-            color: activeTab === 'documents' ? '#38bdf8' : 'rgba(148, 163, 184, 0.85)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.2rem',
-          }}
+          className={`memory-category-card ${activeTab === 'documents' ? 'is-active' : ''}`}
         >
-          <Database size={16} />
-          <span>Document RAG</span>
+          <div className="category-card-top">
+            <Database size={17} className="category-icon" />
+            <span className="category-count">{documents.length}</span>
+          </div>
+          <span className="category-title">Document RAG</span>
+          <span className="category-desc">Audited filings &amp; reports</span>
         </button>
       </div>
 

@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
   // These packages use native binaries and must NOT be bundled by webpack.
   serverExternalPackages: ['@prisma/client', '.prisma/client', 'yahoo-finance2'],
 
+  // Ensure prisma files are included in the serverless output tracing bundle
+  outputFileTracingIncludes: {
+    '/**': ['./prisma/**'],
+  },
+
   // ── Image optimization ──────────────────────────────────────────────────────
   images: {
     remotePatterns: [],

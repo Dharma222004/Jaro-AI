@@ -198,12 +198,21 @@ export default function JournalPage() {
       <div className="journal-safeguard" role="note">
         <ShieldCheck size={18} />
         <div>
-          <strong>Research and execution records stay separate</strong>
-          <span>Jaro never assumes a shadow signal was traded. Records are isolated by this browser&apos;s private identity; this is not authenticated account-level row security.</span>
+          <strong>Authenticated User Row-Level Isolation</strong>
+          <span>Research signals and user-confirmed trade executions are cryptographically isolated and authorized to your user account. Research scenarios never automatically alter trade history.</span>
         </div>
       </div>
 
-      {error && <div className="journal-feedback error" role="alert"><AlertTriangle size={16} /><span>{error}</span></div>}
+      {error && (
+        <div className="journal-feedback error" role="alert">
+          <AlertTriangle size={16} />
+          <span>{error}</span>
+          <button className="btn-retry-inline" onClick={() => void load()} type="button">
+            <RefreshCw size={12} />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
       {notice && <div className="journal-feedback success" role="status"><CheckCircle2 size={16} /><span>{notice}</span></div>}
 
       {showTradeForm && (

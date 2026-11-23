@@ -2,57 +2,33 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import {
   ArrowDown,
-  ArrowRight,
-  Check,
-  Clock3,
-  Copy,
-  ExternalLink,
-  FileSearch,
   LoaderCircle,
-  MessageSquarePlus,
   Paperclip,
   Plus,
-  RefreshCw,
   Send,
   Square,
   Trash2,
   X,
 } from 'lucide-react';
-import { MarkdownAnswer } from './MarkdownAnswer';
-import { TechnicalChart } from './TechnicalChart';
-import { InvestmentDecisionCard } from './InvestmentDecisionCard';
 import { JaroLogo } from '@/components/brand/JaroLogo';
 import { MessageBubble } from './MessageBubble';
-import type { ResearchSourceMeta } from '@/types/research';
-import type {
-  ConversationArtifact,
-  ConversationContext,
-  ResearchIntent,
-} from '@/types/conversation';
-import { getMemoryEnabled, getMemoryIdentity } from '@/lib/memory/client';
+import { getMemoryEnabled } from '@/lib/memory/client';
 import { AttachmentGallery } from './AttachmentGallery';
-
 import type { ImageAttachment } from '@/types/attachment';
 import {
   formatMessageTime,
-  dedupeMessageSources,
-  replaceInternalCitations,
   createConversation,
-  upsertStage,
   makeTitle,
   relativeTime,
   deleteConversationAttachments,
-  imageDimensions,
   addAttachments,
   removePendingAttachment,
   STORAGE_KEY,
   CURRENT_KEY,
   type LocalMessage,
   type LocalConversation,
-  type MessageStage,
 } from './types';
 
 export function ResearchAssistant() {
@@ -128,7 +104,7 @@ export function ResearchAssistant() {
     const frame = requestAnimationFrame(() => {
       const container = messagesRef.current;
       if (!container) return;
-      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 40;
+      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 80;
       if (!nearBottom) setShowJumpToLatest(true);
     });
     return () => cancelAnimationFrame(frame);
@@ -137,14 +113,14 @@ export function ResearchAssistant() {
   const handleConversationScroll = useCallback(() => {
     const container = messagesRef.current;
     if (!container) return;
-    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 120;
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= 100;
     setShowJumpToLatest(!nearBottom);
   }, []);
 
   const jumpToLatest = useCallback(() => {
     const container = messagesRef.current;
     if (!container) return;
-    container.scrollTop = container.scrollHeight;
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     setShowJumpToLatest(false);
     setVisibleMessageCount(20);
   }, []);
@@ -175,6 +151,13 @@ export function ResearchAssistant() {
     setHistoryOpen(false);
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [conversations]);
+
+  // Listen for global mobile header "New" event
+  useEffect(() => {
+    const handler = () => newConversation();
+    window.addEventListener('jaro-new-chat', handler);
+    return () => window.removeEventListener('jaro-new-chat', handler);
+  }, [newConversation]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -229,7 +212,6 @@ export function ResearchAssistant() {
     };
     const priorHistory = current.messages.slice(-10).map((message) => ({ role: message.role, content: message.content }));
     const requestContext = current.context;
-    setShowJumpToLatest(true);
     setVisibleMessageCount((count) => Math.min(current.messages.length + 2, count + 2));
 
     updateConversation(conversationId, (conversation) => ({
@@ -249,7 +231,6 @@ export function ResearchAssistant() {
     abortRef.current = controller;
     let accumulated = '';
     let contentFrame: number | null = null;
-    let hasSentFirstChunk = false;
     const flushContent = () => {
       if (contentFrame != null) cancelAnimationFrame(contentFrame);
       contentFrame = null;
@@ -260,101 +241,80 @@ export function ResearchAssistant() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
         body: JSON.stringify({
-          query,
-          conversationId,
-          sourceMessageId: userMessage.id,
+          message: query,
           history: priorHistory,
           context: requestContext,
           memoryEnabled,
-          memoryIdentity: memoryEnabled ? getMemoryIdentity() : undefined,
-          attachments: messageAttachments.map(({ id, name, mimeType, width, height, size }) => ({ id, name, mimeType, width, height, size })),
+          attachments: messageAttachments,
         }),
+        signal: controller.signal,
       });
+
       if (!response.ok || !response.body) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'The research service did not respond.');
+        const errPayload = await response.json().catch(() => null);
+        throw new Error(errPayload?.error || `Request failed with HTTP status ${response.status}`);
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+
       while (true) {
-        const { value, done } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-        for (const eventBlock of events) {
-          const dataLine = eventBlock.split('\n').find((line) => line.startsWith('data:'));
-          if (!dataLine) continue;
-          const event = JSON.parse(dataLine.replace(/^data:\s*/, ''));
-          if (event.type === 'delta') {
-            accumulated += event.delta;
-            if (!hasSentFirstChunk) {
-              hasSentFirstChunk = true;
-            }
-            if (contentFrame == null) {
-              contentFrame = requestAnimationFrame(() => {
-                contentFrame = null;
-                updateMessage(conversationId, assistantId, { content: accumulated });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === 'stage') {
+              updateMessage(conversationId, assistantId, (message) => ({
+                ...message,
+                stages: [
+                  ...(message.stages ?? []).filter((s) => s.id !== event.stage.id),
+                  event.stage,
+                ],
+              }));
+            } else if (event.type === 'token') {
+              accumulated += event.text;
+              if (contentFrame == null) {
+                contentFrame = requestAnimationFrame(flushContent);
+              }
+            } else if (event.type === 'sources') {
+              updateMessage(conversationId, assistantId, { sources: event.sources });
+            } else if (event.type === 'artifact') {
+              updateMessage(conversationId, assistantId, { artifact: event.artifact });
+            } else if (event.type === 'complete') {
+              flushContent();
+              updateMessage(conversationId, assistantId, {
+                status: 'complete',
+                intent: event.intent,
+                suggestions: event.suggestions,
+                dataTimestamp: event.dataTimestamp,
               });
+            } else if (event.type === 'error') {
+              throw new Error(event.message || 'Stream received error signal.');
             }
-          } else if (event.type === 'stage') {
-            updateMessage(conversationId, assistantId, (message) => ({
-              ...message,
-              stages: upsertStage(message.stages ?? [], event.stage, event.status, event.detail),
-            }));
-          } else if (event.type === 'intent') {
-            updateMessage(conversationId, assistantId, { intent: event.classification.intent });
-          } else if (event.type === 'sources') {
-            updateMessage(conversationId, assistantId, { sources: event.sources });
-          } else if (event.type === 'artifact') {
-            updateMessage(conversationId, assistantId, { artifact: event.artifact });
-          } else if (event.type === 'context') {
-            updateConversation(conversationId, (conversation) => ({ ...conversation, context: event.context, updatedAt: new Date().toISOString() }));
-          } else if (event.type === 'done') {
-            flushContent();
-            updateMessage(conversationId, assistantId, { status: 'complete', dataTimestamp: event.dataTimestamp });
-          } else if (event.type === 'error') {
-            throw new Error(event.error || 'Research failed.');
+          } catch (parseError) {
+            console.warn('[Research Stream Parse Error]', parseError);
           }
         }
       }
       flushContent();
-      updateMessage(conversationId, assistantId, (message) => ({ ...message, status: 'complete' }));
-    } catch (error) {
-      if (controller.signal.aborted) {
-        updateMessage(conversationId, assistantId, (message) => ({
-          ...message,
-          status: 'complete',
-          content: message.content || 'Response stopped.',
-        }));
-      } else {
-        const errorMessage = error instanceof Error ? error.message : 'Research failed.';
-        const isNetworkError = errorMessage.toLowerCase().includes('network') ||
-          errorMessage.toLowerCase().includes('fetch') ||
-          errorMessage.toLowerCase().includes('connection');
-        const isTimeout = errorMessage.toLowerCase().includes('timeout');
-
-        let userFriendlyMessage = 'I could not complete this research request.';
-        if (isNetworkError) {
-          userFriendlyMessage = 'The connection was interrupted. Please check your connection and try again.';
-        } else if (isTimeout) {
-          userFriendlyMessage = 'The request timed out. Please try again.';
-        } else {
-          userFriendlyMessage = 'An unexpected error occurred. Please try again.';
-        }
-
-        updateMessage(conversationId, assistantId, (message) => {
-          if (message.status === 'error') return message;
-          return {
-            ...message,
-            status: 'error',
-            error: errorMessage,
-            content: accumulated || userFriendlyMessage,
-          };
+      updateMessage(conversationId, assistantId, { status: 'complete' });
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== 'AbortError') {
+        const errMsg = err instanceof Error ? err.message : 'Research pipeline encountered an unexpected issue.';
+        updateMessage(conversationId, assistantId, {
+          status: 'error',
+          error: errMsg,
+          content: accumulated || 'An error occurred while analyzing the company. Please retry.',
         });
       }
     } finally {
@@ -385,6 +345,7 @@ export function ResearchAssistant() {
 
   return (
     <div className={`research-assistant ${current.messages.length === 0 ? 'is-empty' : 'has-messages'}`}>
+      {/* Desktop conversation title and header (Clean, hidden on mobile to avoid redundant header rows) */}
       <header className="assistant-header">
         <div className="assistant-header-left">
           <div className="assistant-header-info">
@@ -395,7 +356,7 @@ export function ResearchAssistant() {
         </div>
         <div className="assistant-header-actions">
           <button
-            className="btn-new-chat"
+            className="btn-new-chat desktop-only-btn"
             aria-label="New chat"
             title="Start new conversation"
             type="button"
@@ -406,6 +367,13 @@ export function ResearchAssistant() {
           </button>
         </div>
       </header>
+
+      {/* Mobile-only compact title pill when messages exist */}
+      {current.messages.length > 0 && (
+        <div className="mobile-conversation-title-bar" aria-hidden="true">
+          <span>{current.title || 'Research Conversation'}</span>
+        </div>
+      )}
 
       {historyOpen && (
         <>
@@ -447,8 +415,7 @@ export function ResearchAssistant() {
                 />
               </div>
               <div className="assistant-topic-brand">
-
-                <span className="brand-label">JARO AI · FINANCIAL INTELLIGENCE FOR INVESTOR</span>
+                <span className="brand-label">JARO AI · FINANCIAL INTELLIGENCE FOR INVESTORS</span>
               </div>
               <h2 id="assistant-topic-heading" className="assistant-topic-heading">
                 AI-Powered Indian Equity Research
@@ -494,7 +461,7 @@ export function ResearchAssistant() {
         <div className="assistant-composer">
           <input ref={fileInputRef} className="composer-file-input" type="file" accept="image/*" multiple onChange={(event) => void addAttachmentsHandler(event.target.files)} />
           <button className="composer-attach" type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming || pendingAttachments.length >= 20} aria-label="Attach images" title="Attach images">
-            <Paperclip size={17} />
+            <Paperclip size={16} />
           </button>
           <textarea
             ref={inputRef}
@@ -508,23 +475,20 @@ export function ResearchAssistant() {
             }}
             onInput={(event) => {
               event.currentTarget.style.height = 'auto';
-              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 160)}px`;
+              event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 140)}px`;
             }}
             rows={1}
-            placeholder="Ask anything about Indian stocks, fundamentals, technicals, or portfolio..."
+            placeholder="Ask about Indian stocks, financials, technicals, or portfolio..."
             disabled={isStreaming}
             aria-label="Ask Jaro AI"
             enterKeyHint="send"
             autoComplete="off"
             spellCheck={false}
-            data-gramm="false"
-            data-gramm_editor="false"
-            data-enable-grammarly="false"
           />
           {isStreaming ? (
-            <button className="composer-send stop" onClick={stop} title="Stop response" aria-label="Stop generating response"><Square size={13} fill="currentColor" /></button>
+            <button className="composer-send stop" onClick={stop} title="Stop response" aria-label="Stop generating response"><Square size={12} fill="currentColor" /></button>
           ) : (
-            <button className="composer-send" onClick={() => sendMessage(input, true)} disabled={!input.trim()} title="Send" aria-label="Send message"><Send size={16} /></button>
+            <button className="composer-send" onClick={() => sendMessage(input, true)} disabled={!input.trim()} title="Send" aria-label="Send message"><Send size={15} /></button>
           )}
         </div>
 

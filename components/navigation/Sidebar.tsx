@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { BookMarked, BrainCircuit, ChevronLeft, ChevronRight, Clock3, Menu, NotebookTabs, Plus, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { JaroLogo } from '@/components/brand/JaroLogo';
@@ -18,6 +17,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [collapsePreferenceReady, setCollapsePreferenceReady] = useState(false);
@@ -59,6 +59,15 @@ export function Sidebar() {
     };
   }, [mobileOpen]);
 
+  const handleMobileNewChat = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('jaro-new-chat'));
+    }
+    if (pathname !== '/') {
+      router.push('/?new=1');
+    }
+  };
+
   return (
     <>
       <aside className={`sidebar-desktop ${collapsed ? 'is-collapsed' : ''}`} aria-label="Primary navigation" id="desktop-primary-navigation">
@@ -69,23 +78,33 @@ export function Sidebar() {
         />
       </aside>
 
-      <header className="sidebar-mobile-header">
-        <Logo mobile />
-        <div className="mobile-header-actions">
-          <Link href="/?new=1" className="btn-mobile-new" aria-label="New chat" title="Start new conversation">
-            <Plus size={15} strokeWidth={2.4} />
-            <span>New</span>
+      <header className="sidebar-mobile-header" role="banner">
+        <div className="mobile-brand-container">
+          <Link aria-label="Jaro AI home" className="brand-home-link" href="/">
+            <JaroLogo variant="mobile" />
           </Link>
+        </div>
+        <div className="mobile-header-actions">
+          <button
+            onClick={handleMobileNewChat}
+            className="btn-mobile-new"
+            aria-label="New chat"
+            title="Start new conversation"
+            type="button"
+          >
+            <Plus size={14} strokeWidth={2.4} />
+            <span>New</span>
+          </button>
           <ThemeToggle size="sm" />
           <button
             aria-controls="mobile-navigation-drawer"
             aria-expanded={mobileOpen}
-            aria-label="Open navigation"
+            aria-label="Open navigation menu"
             className="mobile-menu-trigger"
             onClick={() => setMobileOpen(true)}
             type="button"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
         </div>
       </header>
@@ -93,7 +112,7 @@ export function Sidebar() {
       {mobileOpen && (
         <div className="mobile-navigation-layer">
           <button
-            aria-label="Close navigation"
+            aria-label="Close navigation menu"
             className="mobile-navigation-scrim"
             onClick={() => setMobileOpen(false)}
             type="button"
@@ -107,28 +126,22 @@ export function Sidebar() {
             role="dialog"
             tabIndex={-1}
           >
-            <button
-              aria-label="Close navigation"
-              className="mobile-drawer-close"
-              onClick={() => setMobileOpen(false)}
-              type="button"
-            >
-              <X size={18} />
-            </button>
+            <div className="mobile-drawer-header">
+              <JaroLogo variant="compact" />
+              <button
+                aria-label="Close navigation"
+                className="mobile-drawer-close"
+                onClick={() => setMobileOpen(false)}
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <SidebarContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
     </>
-  );
-}
-
-function Logo({ mobile = false, compact = false }: { mobile?: boolean; compact?: boolean; animated?: boolean }) {
-  const variant = compact ? 'compact' : mobile ? 'mobile' : 'sidebar';
-  return (
-    <Link aria-label="Jaro AI home" className="brand-home-link" href="/">
-      <JaroLogo variant={variant} />
-    </Link>
   );
 }
 
@@ -147,7 +160,9 @@ function SidebarContent({
     <div className="sidebar-content">
       <div>
         <div className={`sidebar-brand ${collapsed ? 'is-collapsed' : ''}`}>
-          <Logo compact={collapsed} />
+          <Link aria-label="Jaro AI home" className="brand-home-link" href="/">
+            <JaroLogo variant={collapsed ? 'compact' : 'sidebar'} />
+          </Link>
           {!collapsed && onToggleCollapsed && (
             <button
               aria-controls="desktop-primary-navigation"

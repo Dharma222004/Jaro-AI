@@ -8949,3 +8949,860 @@ code, pre, kbd, samp, .font-mono,
   color: #10b981 !important;
   border: 1px solid rgba(16, 185, 129, 0.4) !important;
 }
+
+
+/* ==========================================================================
+   JARO AI — MOBILE WEB EXPERIENCE REPAIR & RESPONSIVE DESIGN TOKENS
+   ========================================================================== */
+
+/* ── 1. Compact Global Mobile Header ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-mobile-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(48px + env(safe-area-inset-top, 0px)) !important;
+    max-height: calc(52px + env(safe-area-inset-top, 0px)) !important;
+    padding: max(0.4rem, env(safe-area-inset-top, 0px)) 0.75rem 0.4rem !important;
+    background: rgba(13, 18, 28, 0.95) !important;
+    border-bottom: 1px solid #263244 !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    z-index: 50 !important;
+    position: sticky !important;
+    top: 0 !important;
+  }
+
+  .mobile-brand-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+  }
+
+  .mobile-brand-container .brand-lockup--mobile {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+  }
+
+  .mobile-brand-container .jaro-mark-wrapper {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+  }
+
+  .mobile-brand-container .brand-wordmark {
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    color: #f8fafc !important;
+  }
+
+  .mobile-brand-container .brand-wordmark-ai {
+    color: #38bdf8 !important;
+  }
+
+  .mobile-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+  }
+
+  .btn-mobile-new {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    background: #3b82f6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    cursor: pointer !important;
+    line-height: 1 !important;
+    height: 32px !important;
+  }
+
+  .btn-mobile-new:active {
+    background: #2563eb !important;
+    transform: scale(0.97) !important;
+  }
+
+  .mobile-menu-trigger {
+    width: 32px !important;
+    height: 32px !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    border: 1px solid #263244 !important;
+    border-radius: 8px !important;
+    background: #111827 !important;
+    color: #cbd5e1 !important;
+  }
+
+  /* Hide redundant desktop elements on mobile */
+  .desktop-only-btn,
+  .assistant-header {
+    display: none !important;
+  }
+
+  /* Compact inline conversation title bar */
+  .mobile-conversation-title-bar {
+    display: block !important;
+    padding: 0.35rem 0.85rem !important;
+    background: rgba(17, 24, 39, 0.6) !important;
+    border-bottom: 1px solid rgba(38, 50, 68, 0.5) !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 0 !important;
+  }
+
+  .main-content {
+    height: calc(100dvh - 48px - env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* ── 2. Full-Screen Chat Experience ──────────────────────────────────────── */
+.research-assistant {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.assistant-messages {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+}
+
+.assistant-thread {
+  max-width: 900px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding: 1rem 0.85rem 7rem !important;
+}
+
+@media (max-width: 600px) {
+  .assistant-thread {
+    padding: 0.75rem 0.65rem 6.5rem !important;
+  }
+}
+
+/* ── 3. Compact Thinking & Process Status Pill ───────────────────────────── */
+.thinking-compact-container {
+  width: 100% !important;
+  margin: 0.4rem 0 0.85rem !important;
+  border-radius: 10px !important;
+  border: 1px solid #263244 !important;
+  background: #111827 !important;
+  overflow: hidden !important;
+  transition: all 0.2s ease !important;
+}
+
+.thinking-compact-container.is-processing {
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  background: rgba(15, 23, 42, 0.8) !important;
+}
+
+.thinking-compact-header {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0.45rem 0.75rem !important;
+  background: transparent !important;
+  border: none !important;
+  color: #cbd5e1 !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+}
+
+.thinking-compact-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.thinking-spin-icon {
+  color: #38bdf8 !important;
+  animation: spin 1s linear infinite !important;
+  flex-shrink: 0 !important;
+}
+
+.thinking-complete-icon {
+  color: #38bdf8 !important;
+  flex-shrink: 0 !important;
+}
+
+.thinking-compact-status {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 0.76rem !important;
+}
+
+.thinking-current-action {
+  color: #38bdf8 !important;
+  font-weight: 600 !important;
+}
+
+.thinking-compact-time {
+  color: #94a3b8 !important;
+  font-size: 0.72rem !important;
+  margin-left: 0.35rem !important;
+}
+
+.thinking-sources-badge {
+  color: #94a3b8 !important;
+  font-size: 0.72rem !important;
+  margin-left: 0.3rem !important;
+}
+
+.thinking-compact-right {
+  color: #64748b !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  margin-left: 0.4rem !important;
+}
+
+.thinking-compact-drawer {
+  padding: 0.6rem 0.75rem 0.75rem !important;
+  border-top: 1px solid #1c2838 !important;
+  background: rgba(13, 18, 28, 0.5) !important;
+}
+
+.thinking-mini-steps {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 0 0.6rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+}
+
+.thinking-mini-step {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.45rem !important;
+  font-size: 0.72rem !important;
+  line-height: 1.4 !important;
+  color: #cbd5e1 !important;
+}
+
+.thinking-mini-step .step-bullet {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #38bdf8 !important;
+  margin-top: 5px !important;
+  flex-shrink: 0 !important;
+}
+
+.thinking-mini-step.step-completed .step-bullet {
+  background: #22c55e !important;
+}
+
+.thinking-mini-step.step-running .step-bullet {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 6px #38bdf8 !important;
+}
+
+.thinking-mini-step .step-subdetail {
+  display: block !important;
+  color: #64748b !important;
+  font-size: 0.68rem !important;
+}
+
+.thinking-mini-sources {
+  margin-top: 0.4rem !important;
+}
+
+.sources-heading {
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  display: block !important;
+  margin-bottom: 0.3rem !important;
+}
+
+.sources-chip-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.35rem !important;
+}
+
+.source-mini-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  padding: 0.2rem 0.45rem !important;
+  font-size: 0.68rem !important;
+  color: #94a3b8 !important;
+  background: #172231 !important;
+  border: 1px solid #263244 !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+}
+
+.source-mini-chip:hover {
+  color: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+}
+
+/* ── 4. Chat Composer & Anchoring ────────────────────────────────────────── */
+.assistant-composer-wrap {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0.5rem 1rem max(0.6rem, env(safe-area-inset-bottom, 0px)) !important;
+  background: linear-gradient(180deg, rgba(8, 11, 18, 0) 0%, rgba(8, 11, 18, 0.9) 30%, #080B12 100%) !important;
+  z-index: 20 !important;
+  pointer-events: none !important;
+}
+
+.assistant-composer-wrap > * {
+  pointer-events: auto !important;
+}
+
+.assistant-composer {
+  max-width: 900px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 0.45rem !important;
+  padding: 0.35rem 0.45rem 0.35rem 0.75rem !important;
+  border: 1px solid #263244 !important;
+  border-radius: 24px !important;
+  background: #111827 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.assistant-composer:focus-within {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.25) !important;
+}
+
+.composer-attach {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: #64748b !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+
+.composer-attach:hover {
+  color: #cbd5e1 !important;
+}
+
+.assistant-composer textarea {
+  flex: 1 !important;
+  min-height: 24px !important;
+  max-height: 120px !important;
+  padding: 0.35rem 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: #f8fafc !important;
+  font-size: 0.88rem !important;
+  line-height: 1.5 !important;
+  resize: none !important;
+  outline: none !important;
+}
+
+.composer-send {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+}
+
+.composer-send:disabled {
+  background: #1c2838 !important;
+  color: #64748b !important;
+  cursor: not-allowed !important;
+}
+
+.composer-send.stop {
+  background: #ef4444 !important;
+}
+
+.composer-disclaimer {
+  display: block !important;
+  text-align: center !important;
+  font-size: 0.65rem !important;
+  color: #64748b !important;
+  margin-top: 0.35rem !important;
+}
+
+@media (max-width: 600px) {
+  .composer-disclaimer {
+    display: none !important;
+  }
+}
+
+/* ── 5. User-Controlled Scroll: Jump to Latest Pill ───────────────────────── */
+.jump-to-latest {
+  position: absolute !important;
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 25 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  padding: 0.4rem 0.85rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+  background: #172231 !important;
+  color: #38bdf8 !important;
+  border: 1px solid #38bdf8 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+
+.jump-to-latest:hover {
+  background: #1e2d42 !important;
+}
+
+/* ── 6. Responsive Financial Tables & Scroll Hint ────────────────────────── */
+.chat-table-container {
+  width: 100% !important;
+  position: relative !important;
+  margin: 0.75rem 0 1rem !important;
+}
+
+.table-scroll-hint {
+  display: none !important;
+  font-size: 0.65rem !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  text-align: right !important;
+  margin-bottom: 0.25rem !important;
+  padding-right: 0.25rem !important;
+}
+
+@media (max-width: 768px) {
+  .table-scroll-hint {
+    display: block !important;
+  }
+}
+
+.chat-table-cols-4 { min-width: 480px !important; }
+.chat-table-cols-5 { min-width: 560px !important; }
+.chat-table-cols-6 { min-width: 680px !important; }
+.chat-table-cols-7 { min-width: 760px !important; }
+.chat-table-cols-8,
+.chat-table-cols-9,
+.chat-table-cols-10 { min-width: 860px !important; }
+
+/* ── 7. Numbered Clickable Citations ─────────────────────────────────────── */
+.source-citation {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  vertical-align: super !important;
+  padding: 1px 4px !important;
+  margin: 0 1.5px !important;
+  border-radius: 4px !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.source-citation:hover {
+  background: rgba(56, 189, 248, 0.3) !important;
+  border-color: #38bdf8 !important;
+}
+
+/* ── 8. History Page Redesign ────────────────────────────────────────────── */
+.history-page-redesign {
+  max-width: 900px !important;
+  margin: 0 auto !important;
+  padding: 1.5rem 1rem 3rem !important;
+}
+
+.history-compact-header {
+  margin-bottom: 1.25rem !important;
+}
+
+.history-page-title {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+  margin: 0.2rem 0 !important;
+}
+
+.history-page-desc {
+  font-size: 0.8rem !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+}
+
+.history-segmented-tabs {
+  display: flex !important;
+  gap: 0.4rem !important;
+  padding: 0.25rem !important;
+  background: #111827 !important;
+  border: 1px solid #263244 !important;
+  border-radius: 10px !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.history-segment-btn {
+  flex: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.history-segment-btn.is-active {
+  background: #172231 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.history-sub-toolbar {
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.btn-clear-all {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.3rem !important;
+  font-size: 0.72rem !important;
+  color: #ef4444 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 0.2rem 0.5rem !important;
+}
+
+.history-cards-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0.75rem !important;
+}
+
+.history-card {
+  padding: 0.9rem 1rem !important;
+  background: #111827 !important;
+  border: 1px solid #263244 !important;
+  border-radius: 12px !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.history-card:hover {
+  border-color: #3b82f6 !important;
+}
+
+.history-card-badges {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 0.4rem !important;
+}
+
+.history-time-badge,
+.history-count-badge {
+  font-size: 0.68rem !important;
+  color: #94a3b8 !important;
+  background: #172231 !important;
+  padding: 0.15rem 0.45rem !important;
+  border-radius: 5px !important;
+}
+
+.history-card-title {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  margin: 0.2rem 0 0.35rem !important;
+}
+
+.history-card-snippet {
+  font-size: 0.76rem !important;
+  color: #64748b !important;
+  line-height: 1.45 !important;
+  margin: 0 0 0.75rem !important;
+}
+
+.history-card-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-top: 1px solid #1c2838 !important;
+  padding-top: 0.6rem !important;
+}
+
+.btn-resume {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.3rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  color: #38bdf8 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+}
+
+.btn-delete-card {
+  width: 30px !important;
+  height: 30px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  color: #64748b !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+}
+
+.btn-delete-card:hover {
+  color: #ef4444 !important;
+}
+
+/* ── 9. Memory Page Redesign & Adaptive Categories Grid ──────────────────── */
+.memory-page-header {
+  padding-top: 0.5rem !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.memory-page-title {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+  margin: 0.2rem 0 !important;
+}
+
+.memory-page-desc {
+  font-size: 0.8rem !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+}
+
+.memory-status-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.85rem !important;
+  padding: 0.9rem 1.1rem !important;
+  border-radius: 12px !important;
+  background: #111827 !important;
+  border: 1px solid #263244 !important;
+  margin-bottom: 1.25rem !important;
+}
+
+@media (min-width: 640px) {
+  .memory-status-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+}
+
+.memory-status-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+.memory-status-title {
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  display: block !important;
+}
+
+.memory-status-note {
+  font-size: 0.7rem !important;
+  color: #94a3b8 !important;
+  display: block !important;
+}
+
+.memory-action-buttons-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 0.45rem !important;
+}
+
+@media (min-width: 640px) {
+  .memory-action-buttons-grid {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+  }
+}
+
+.memory-action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  background: #172231 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #263244 !important;
+  cursor: pointer !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+.memory-action-btn:hover {
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+.memory-restore-label {
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+
+/* 4-tier Adaptive Categories Selector */
+.memory-categories-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 0.6rem !important;
+  margin-bottom: 1.25rem !important;
+}
+
+@media (min-width: 768px) {
+  .memory-categories-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+.memory-category-card {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0.75rem 0.85rem !important;
+  border-radius: 10px !important;
+  background: #111827 !important;
+  border: 1px solid #263244 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.memory-category-card.is-active {
+  background: rgba(56, 189, 248, 0.08) !important;
+  border-color: #38bdf8 !important;
+}
+
+.category-card-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 0.4rem !important;
+}
+
+.category-icon {
+  color: #64748b !important;
+}
+
+.memory-category-card.is-active .category-icon {
+  color: #38bdf8 !important;
+}
+
+.category-count {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+  background: #172231 !important;
+  padding: 0.1rem 0.4rem !important;
+  border-radius: 4px !important;
+}
+
+.memory-category-card.is-active .category-count {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+}
+
+.category-title {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #cbd5e1 !important;
+  margin-bottom: 0.15rem !important;
+}
+
+.memory-category-card.is-active .category-title {
+  color: #f8fafc !important;
+}
+
+.category-desc {
+  font-size: 0.68rem !important;
+  color: #64748b !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* ── 10. Journal Safeguard & Retry ────────────────────────────────────────── */
+.btn-retry-inline {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  padding: 0.25rem 0.55rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  cursor: pointer !important;
+  margin-left: auto !important;
+}

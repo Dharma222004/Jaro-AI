@@ -9,7 +9,6 @@ import {
   ExternalLink,
   FileText,
   MessageSquare,
-  Plus,
   Search,
   Trash2,
 } from 'lucide-react';
@@ -39,7 +38,6 @@ export default function HistoryPage() {
       if (stored) {
         const parsed = JSON.parse(stored) as LocalConversation[];
         if (Array.isArray(parsed)) {
-          // Only show conversations that have at least one message or a custom title
           setConversations(parsed.filter((c) => c.messages.length > 0));
         }
       }
@@ -81,6 +79,7 @@ export default function HistoryPage() {
   };
 
   const deleteConversation = (id: string) => {
+    if (!window.confirm('Delete this saved conversation? This cannot be undone.')) return;
     const updated = conversations.filter((c) => c.id !== id);
     setConversations(updated);
     try {
@@ -98,7 +97,7 @@ export default function HistoryPage() {
   };
 
   const clearAllConversations = () => {
-    if (!window.confirm('Delete all saved research conversations from this browser?')) return;
+    if (!window.confirm('Are you sure you want to delete ALL saved conversations from this browser? This action cannot be undone.')) return;
     setConversations([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -109,168 +108,161 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="page-container section-page">
-      <header className="section-page-header">
-        <span className="section-eyebrow">Research Workspace</span>
-        <div className="section-header-row">
-          <div>
-            <h1>Research History</h1>
-            <p>Review past equity research conversations and archived company dossiers.</p>
-          </div>
-          <Link className="btn-primary" href="/?new=1">
-            <Plus size={15} strokeWidth={2.4} />
-            <span>New Chat</span>
-          </Link>
-        </div>
+    <div className="page-container history-page-redesign">
+      <header className="history-compact-header">
+        <span className="section-eyebrow">Saved Research</span>
+        <h1 className="history-page-title">Research History</h1>
+        <p className="history-page-desc">
+          Past equity dialogues, valuation models, and archived company research.
+        </p>
       </header>
 
-      {/* Tabs */}
-      <div className="history-tabs" role="tablist" aria-label="History sections">
+      {/* Responsive Segmented Control Tabs */}
+      <div className="history-segmented-tabs" role="tablist" aria-label="History categories">
         <button
           role="tab"
           aria-selected={activeTab === 'conversations'}
-          className={`history-tab ${activeTab === 'conversations' ? 'active' : ''}`}
+          className={`history-segment-btn ${activeTab === 'conversations' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('conversations')}
         >
-          <MessageSquare size={15} />
+          <MessageSquare size={14} />
           <span>Conversations ({conversations.length})</span>
         </button>
         <button
           role="tab"
           aria-selected={activeTab === 'reports'}
-          className={`history-tab ${activeTab === 'reports' ? 'active' : ''}`}
+          className={`history-segment-btn ${activeTab === 'reports' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('reports')}
         >
-          <FileText size={15} />
+          <FileText size={14} />
           <span>Archived Reports ({reports.length})</span>
         </button>
       </div>
 
       {activeTab === 'conversations' ? (
-        <section aria-labelledby="conversations-heading">
-          <div className="history-section-header">
+        <section aria-labelledby="conversations-heading" className="history-tab-content">
+          <div className="history-sub-toolbar">
             <h2 id="conversations-heading" className="sr-only">Saved Conversations</h2>
             {conversations.length > 0 && (
               <button
-                className="btn-ghost-danger"
+                className="btn-clear-all"
                 onClick={clearAllConversations}
                 title="Clear all saved conversations"
                 type="button"
               >
-                <Trash2 size={13} />
+                <Trash2 size={12} />
                 <span>Clear All</span>
               </button>
             )}
           </div>
 
           {!hydrated ? (
-            <div className="history-skeleton">
-              <div className="skeleton-row" />
-              <div className="skeleton-row" />
-              <div className="skeleton-row" />
+            <div className="history-skeleton-list">
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
             </div>
           ) : conversations.length === 0 ? (
-            <div className="card empty-state">
-              <span className="empty-state-icon"><Clock3 size={23} strokeWidth={2} /></span>
-              <h2>No conversations yet</h2>
-              <p>Your equity research dialogues, questions, and decisions will be safely preserved here.</p>
+            <div className="card history-empty-card">
+              <span className="empty-icon-wrap"><Clock3 size={24} /></span>
+              <h3>No conversations yet</h3>
+              <p>Your equity research dialogues, questions, and decisions will be preserved here.</p>
               <Link className="btn-primary" href="/">
-                <Search size={15} />
+                <Search size={14} />
                 <span>Start Research</span>
                 <ArrowRight size={14} />
               </Link>
             </div>
           ) : (
-            <div className="history-list">
+            <div className="history-cards-grid">
               {conversations.map((conv) => {
                 const activeTickers = conv.context?.activeCompanies?.map((c) => c.ticker) ?? [];
+                const firstUserMsg = conv.messages.find((m) => m.role === 'user')?.content;
                 return (
-                  <div className="history-item-card card" key={conv.id}>
-                    <div className="history-item-main">
-                      <div className="history-item-meta">
-                        <span className="history-time">{relativeTime(conv.updatedAt)}</span>
-                        <span className="history-pill">{conv.messages.length} messages</span>
+                  <article className="card history-card" key={conv.id}>
+                    <div className="history-card-header">
+                      <div className="history-card-badges">
+                        <span className="history-time-badge">{relativeTime(conv.updatedAt)}</span>
+                        <span className="history-count-badge">{conv.messages.length} msgs</span>
                         {activeTickers.map((ticker) => (
                           <span className="ticker-badge" key={ticker}>{ticker}</span>
                         ))}
                       </div>
-                      <h3 className="history-item-title">{conv.title || 'Untitled Research'}</h3>
-                      {conv.messages[0] && (
-                        <p className="history-item-preview">
-                          {conv.messages[0].content.slice(0, 160)}...
-                        </p>
-                      )}
                     </div>
-                    <div className="history-item-actions">
+
+                    <h3 className="history-card-title">{conv.title || 'Untitled Research'}</h3>
+
+                    {firstUserMsg && (
+                      <p className="history-card-snippet">
+                        {firstUserMsg.slice(0, 120)}...
+                      </p>
+                    )}
+
+                    <div className="history-card-actions">
                       <button
-                        className="btn-secondary"
+                        className="btn-resume"
                         onClick={() => openConversation(conv.id)}
-                        title="Resume this conversation in chat"
                         type="button"
                       >
-                        <MessageSquare size={14} />
                         <span>Resume</span>
+                        <ArrowRight size={13} />
                       </button>
                       <button
-                        className="icon-button danger"
+                        aria-label={`Delete conversation: ${conv.title}`}
+                        className="btn-delete-card"
                         onClick={() => deleteConversation(conv.id)}
-                        aria-label="Delete conversation"
                         title="Delete conversation"
                         type="button"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
           )}
         </section>
       ) : (
-        <section aria-labelledby="reports-heading">
-          <h2 id="reports-heading" className="sr-only">Archived Reports</h2>
+        <section aria-labelledby="reports-heading" className="history-tab-content">
+          <div className="history-sub-toolbar">
+            <h2 id="reports-heading" className="sr-only">Archived Reports</h2>
+          </div>
+
           {reportsLoading ? (
-            <div className="history-skeleton">
-              <div className="skeleton-row" />
-              <div className="skeleton-row" />
-              <div className="skeleton-row" />
+            <div className="history-skeleton-list">
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
             </div>
           ) : reports.length === 0 ? (
-            <div className="card empty-state">
-              <span className="empty-state-icon"><FileText size={23} strokeWidth={2} /></span>
-              <h2>No archived reports found</h2>
-              <p>Full institutional equity reports generated during deep-dive research will appear here.</p>
+            <div className="card history-empty-card">
+              <span className="empty-icon-wrap"><FileText size={24} /></span>
+              <h3>No archived reports</h3>
+              <p>When you conduct comprehensive research reports on companies, they will be archived here.</p>
               <Link className="btn-primary" href="/">
-                <Search size={15} />
-                <span>Launch New Analysis</span>
-                <ArrowRight size={14} />
+                <Search size={14} />
+                <span>Research a Company</span>
               </Link>
             </div>
           ) : (
-            <div className="history-list">
+            <div className="history-cards-grid">
               {reports.map((report) => (
-                <div className="history-item-card card" key={report.id}>
-                  <div className="history-item-main">
-                    <div className="history-item-meta">
-                      <span className="ticker-badge">{report.exchange}: {report.ticker}</span>
-                      <span className="badge-neutral">{new Date(report.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
-                      <span className={`status-pill ${report.status}`}>{report.status}</span>
+                <article className="card history-card report-card" key={report.id}>
+                  <div className="history-card-header">
+                    <div className="history-card-badges">
+                      <span className="history-time-badge">{relativeTime(report.createdAt)}</span>
+                      <span className="ticker-badge primary">{report.ticker}</span>
+                      <span className="exchange-badge">{report.exchange}</span>
                     </div>
-                    <h3 className="history-item-title">{report.companyName}</h3>
-                    <p className="history-item-preview">Query: “{report.query}”</p>
                   </div>
-                  <div className="history-item-actions">
-                    <Link
-                      className="btn-secondary"
-                      href={`/history/${report.id}`}
-                      title="View full report"
-                    >
-                      <ExternalLink size={14} />
+                  <h3 className="history-card-title">{report.companyName}</h3>
+                  <p className="history-card-snippet">{report.query}</p>
+                  <div className="history-card-actions">
+                    <Link className="btn-resume" href={`/history/${report.id}`}>
                       <span>View Dossier</span>
+                      <ExternalLink size={13} />
                     </Link>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}

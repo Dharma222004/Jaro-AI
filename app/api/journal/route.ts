@@ -83,7 +83,23 @@ export async function DELETE(request: NextRequest) {
 }
 
 function fail(error: unknown) {
-  const message = error instanceof Error ? error.message : 'Journal operation failed.';
-  const status = error instanceof JournalInputError ? error.status : /identity/i.test(message) ? 401 : 500;
-  return NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
+  console.error('[Journal API Error]', error);
+  const rawMessage = error instanceof Error ? error.message : 'Journal operation failed.';
+
+  if (error instanceof JournalInputError) {
+    return NextResponse.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (/identity|unauthorized|missing/i.test(rawMessage)) {
+    return NextResponse.json({ error: 'Authentication required to access research journal.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (/database file|sqlite_cantopen|initialization|connect/i.test(rawMessage)) {
+    return NextResponse.json(
+      { error: 'The journal database is temporarily initializing or unavailable. Please retry in a moment.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  return NextResponse.json({ error: 'An unexpected journal processing error occurred.' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
 }

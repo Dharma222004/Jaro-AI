@@ -12,16 +12,28 @@ function cleanMarkdownArtifacts(raw: string): string {
   if (!raw) return '';
   return raw
     .replace(/\r\n/g, '\n')
-    // Strip leading `#*` or `##*` or `###*` artifacts
-    .replace(/^(#{1,6})\s*\*+\s*(.+?)\s*\*+$/gm, '$1 $2')
-    .replace(/^(#{1,6})\s*\*+\s*(.+)$/gm, '$1 $2')
-    .replace(/^(#{1,6})\*\s*(.+)$/gm, '$1 $2')
-    .replace(/^\*+\s*(#{1,6})\s*(.+?)\s*\*+$/gm, '$1 $2')
-    .replace(/^(#{1,6})\*+([^*])/gm, '$1 $2')
+    // Remove empty blockquotes or broken quote artifacts like "> **** |" or "> *#"
+    .replace(/^>\s*[*#|\s]+$/gm, '')
+    // Fix blockquotes with stray asterisks/hashes: "> *# Text" -> "> Text"
+    .replace(/^>\s*[*#]+\s*/gm, '> ')
+    // Normalize header + asterisks combinations at line starts:
+    // "#*", "##*", "###*", "*#", "*##", "*###", "**#", "##**"
+    .replace(/^(\s*)[#*]+([#]{1,6})\s*(.+)$/gm, '$1$2 $3')
+    .replace(/^(\s*#{1,6})\s*[*_]+\s*(.+?)\s*[*_]*$/gm, '$1 $2')
+    .replace(/^(\s*[*_]+)\s*(#{1,6})\s*(.+?)\s*[*_]*$/gm, '$2 $3')
+    .replace(/^(#{1,6})[*_]+\s*(.+)$/gm, '$1 $2')
+    .replace(/^(#{1,6})\s*[*_]+([^*_])/gm, '$1 $2')
     // Fix unspaced headers: "###Heading" -> "### Heading"
     .replace(/^(#{1,6})([A-Za-z0-9])/gm, '$1 $2')
-    // Remove `#*` stuck at beginning of list items
-    .replace(/^(\s*[-*]\s*)#{1,6}\*?\s*/gm, '$1');
+    // Remove `#*` or `*#` stuck at beginning of list items
+    .replace(/^(\s*[-*]\s*)[#*]+\s*/gm, '$1')
+    .replace(/^(\s*\d+\.\s*)[#*]+\s*/gm, '$1')
+    // Strip stray "*#" or "#*" sequences globally wherever they appear
+    .replace(/\*+#+/g, '')
+    .replace(/#+\*+/g, '')
+    // Clean up empty bold marks like "****" or "** **"
+    .replace(/\*{4,}/g, '**')
+    .replace(/\*\*\s*\*\*/g, '');
 }
 
 export function MarkdownAnswer({
@@ -145,6 +157,27 @@ export function MarkdownAnswer({
     if (/^---+$|^\*\*\*+$/.test(line.trim())) {
       nodes.push(<hr className="chat-divider" key={`hr-${index}`} />);
       index += 1;
+      continue;
+    }
+
+    if (line.trim().startsWith('>')) {
+      const quoteLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith('>')) {
+        const cleanedQuote = lines[index].trim().replace(/^>\s?/, '').trim();
+        if (cleanedQuote && !/^[*#|\s]+$/.test(cleanedQuote)) {
+          quoteLines.push(cleanedQuote);
+        }
+        index += 1;
+      }
+      if (quoteLines.length > 0) {
+        nodes.push(
+          <blockquote className="chat-blockquote" key={`quote-${index}`}>
+            {quoteLines.map((qLine, qIdx) => (
+              <p key={qIdx}>{inline(qLine, citationScope, onCitationClick)}</p>
+            ))}
+          </blockquote>,
+        );
+      }
       continue;
     }
 
@@ -272,7 +305,11 @@ function splitTableRow(line: string): string[] {
 }
 
 function inline(text: string, citationScope?: string, onCitationClick?: (sourceNumber: number) => void): React.ReactNode[] {
-  const sanitizedText = text.replace(/^(?:#{1,6}\*?|\*+#{1,6})\s*/, '');
+  const sanitizedText = text
+    .replace(/\*+#+|#+\*+/g, '')
+    .replace(/^(?:#{1,6}\*?|\*+#{1,6})\s*/, '')
+    .replace(/\*{4,}/g, '**')
+    .replace(/\*\*\s*\*\*/g, '');
   const pattern = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\)|\[\d+\]|\[[a-zA-Z][a-zA-Z0-9_-]*\]|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_))/g;
   return sanitizedText.split(pattern).filter(Boolean).map((part, index) => {
     if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {

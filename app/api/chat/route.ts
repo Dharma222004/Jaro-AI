@@ -168,7 +168,6 @@ export async function POST(request: NextRequest) {
                 return (delta: string) => {
                   const sanitized = sanitizeDelta(delta);
                   if (sanitized) {
-                    send({ type: 'token', text: sanitized, delta: sanitized });
                     send({ type: 'delta', delta: sanitized, text: sanitized });
                   }
                 };
@@ -214,7 +213,6 @@ export async function POST(request: NextRequest) {
             }
           }
           const ts = new Date().toISOString();
-          send({ type: 'done', dataTimestamp: ts });
           send({
             type: 'complete',
             dataTimestamp: ts,

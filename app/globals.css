@@ -3913,8 +3913,9 @@ button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 .markdown-answer li,
 .source-grid strong,
 .report-view p {
-  overflow-wrap: anywhere;
-  word-break: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  text-align: left;
 }
 
 .markdown-answer td,
@@ -9954,4 +9955,42 @@ code, pre, kbd, samp, .font-mono,
 .assistant-messages {
   scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
+}
+
+/* Chat Blockquote & Callout styling */
+.chat-blockquote,
+.markdown-answer blockquote {
+  margin: 0.85rem 0 !important;
+  padding: 0.65rem 0.95rem !important;
+  border-left: 3px solid var(--primary, #3b82f6) !important;
+  border-radius: 0 8px 8px 0 !important;
+  background: var(--bg-elevated, rgba(59, 130, 246, 0.06)) !important;
+  color: var(--text-secondary, #94a3b8) !important;
+  font-size: 0.86rem !important;
+  line-height: 1.6 !important;
+}
+
+.chat-blockquote p,
+.markdown-answer blockquote p {
+  margin: 0.25rem 0 !important;
+  color: inherit !important;
+}
+
+.chat-blockquote p:first-child,
+.markdown-answer blockquote p:first-child {
+  margin-top: 0 !important;
+}
+
+.chat-blockquote p:last-child,
+.markdown-answer blockquote p:last-child {
+  margin-bottom: 0 !important;
+}
+
+[data-theme="light"] .chat-blockquote,
+[data-theme="light"] .markdown-answer blockquote,
+.light .chat-blockquote,
+.light .markdown-answer blockquote {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-left-color: #2563eb !important;
+  color: #334155 !important;
 }

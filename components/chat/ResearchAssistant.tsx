@@ -260,6 +260,7 @@ export function ResearchAssistant() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let lastRawEvent = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -272,6 +273,10 @@ export function ResearchAssistant() {
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
           if (!raw || raw === '[DONE]') continue;
+          // Guard against accidental identical consecutive SSE events
+          if (raw === lastRawEvent) continue;
+          lastRawEvent = raw;
+
           try {
             const event = JSON.parse(raw);
             if (event.type === 'stage') {
@@ -285,8 +290,8 @@ export function ResearchAssistant() {
                   stageObj,
                 ],
               }));
-            } else if (event.type === 'token' || event.type === 'delta') {
-              const textPiece = event.text ?? event.delta ?? '';
+            } else if (event.type === 'delta' || event.type === 'token') {
+              const textPiece = event.delta ?? event.text ?? '';
               accumulated += textPiece;
               if (contentFrame == null) {
                 contentFrame = requestAnimationFrame(flushContent);

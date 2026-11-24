@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, Quote } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Quote, Sparkles } from 'lucide-react';
 import { FINANCIAL_QUOTES, type FinancialQuote } from './quotes-data';
 
 interface ThinkingQuotesProps {
@@ -84,18 +84,21 @@ export function ThinkingQuotes({ isStreaming, hasContent = false }: ThinkingQuot
   const quote = shuffledQuotes[index % shuffledQuotes.length];
   if (!quote) return null;
 
+  const tagLabel = quote.category ? `${quote.category.toUpperCase()} · WISDOM` : 'MARKET WISDOM';
+
   return (
     <div
       className={`thinking-quotes-box ${isExiting ? 'is-exiting' : 'is-active'}`}
       aria-live="polite"
     >
       <div className="thinking-quotes-inner">
+        {/* Top Header Row with Category Badge & 6s Progress Bar */}
         <div className="thinking-quotes-meta">
           <div className="thinking-quotes-badge">
             <Quote size={11} className="thinking-quotes-icon" />
-            <span>Market Wisdom</span>
+            <span>{tagLabel}</span>
           </div>
-          <div className="thinking-quotes-progress">
+          <div className="thinking-quotes-progress" title="Quote cycles every 6 seconds">
             <div
               key={`bar-${index}-${fadeState}`}
               className="thinking-quotes-progress-bar"
@@ -103,19 +106,17 @@ export function ThinkingQuotes({ isStreaming, hasContent = false }: ThinkingQuot
           </div>
         </div>
 
+        {/* Bold Quote & Attribution with Smooth Fade Animation */}
         <div className={`thinking-quote-content fade-${fadeState}`}>
-          <p className="thinking-quote-text">
+          <blockquote className="thinking-quote-text">
             “{quote.text}”
-          </p>
-          {quote.author ? (
-            <span className="thinking-quote-author">
-              — {quote.author}
-            </span>
-          ) : (
-            <span className="thinking-quote-author thinking-quote-proverb">
-              — Investing Principle
-            </span>
-          )}
+          </blockquote>
+          <div className="thinking-quote-author-row">
+            <span className="thinking-quote-dash">—</span>
+            <strong className="thinking-quote-author">
+              {quote.author || 'Timeless Investing Principle'}
+            </strong>
+          </div>
         </div>
       </div>
     </div>

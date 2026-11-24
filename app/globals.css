@@ -9343,14 +9343,15 @@ code, pre, kbd, samp, .font-mono,
 
 /* ── Rotating Financial Quotes Ticker during AI Thinking ────────────────── */
 .thinking-quotes-box {
-  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08)) !important;
-  background: var(--bg-elevated, rgba(15, 23, 42, 0.6)) !important;
+  border-top: 1px solid rgba(56, 189, 248, 0.22) !important;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(10, 16, 30, 0.96) 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   overflow: hidden !important;
   transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
               max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
               padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
               margin 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  max-height: 220px !important;
+  max-height: 240px !important;
   opacity: 1 !important;
 }
 
@@ -9364,42 +9365,47 @@ code, pre, kbd, samp, .font-mono,
 }
 
 .thinking-quotes-inner {
-  padding: 0.65rem 0.85rem 0.75rem !important;
+  padding: 0.85rem 1.05rem 0.95rem !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.45rem !important;
+  gap: 0.6rem !important;
 }
 
 .thinking-quotes-meta {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 0.6rem !important;
+  gap: 0.75rem !important;
 }
 
 .thinking-quotes-badge {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 0.35rem !important;
+  gap: 0.38rem !important;
+  padding: 0.22rem 0.55rem !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  border-radius: 6px !important;
   font-size: 0.68rem !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.06em !important;
-  color: var(--accent, #38bdf8) !important;
+  letter-spacing: 0.07em !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15) !important;
   user-select: none !important;
 }
 
 .thinking-quotes-icon {
-  color: var(--accent, #38bdf8) !important;
+  color: #38bdf8 !important;
   flex-shrink: 0 !important;
-  opacity: 0.9 !important;
+  opacity: 0.95 !important;
 }
 
 .thinking-quotes-progress {
   flex: 1 !important;
-  max-width: 80px !important;
-  height: 2px !important;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.1)) !important;
+  max-width: 110px !important;
+  height: 3px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
   border-radius: 9999px !important;
   overflow: hidden !important;
   position: relative !important;
@@ -9408,8 +9414,9 @@ code, pre, kbd, samp, .font-mono,
 .thinking-quotes-progress-bar {
   height: 100% !important;
   width: 0% !important;
-  background: linear-gradient(90deg, var(--accent, #38bdf8), #818cf8) !important;
+  background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%) !important;
   border-radius: 9999px !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6) !important;
   animation: quote-timer-fill 6s linear forwards !important;
 }
 
@@ -9425,7 +9432,7 @@ code, pre, kbd, samp, .font-mono,
 .thinking-quote-content {
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.3rem !important;
+  gap: 0.4rem !important;
   transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
   will-change: opacity, transform !important;
@@ -9443,37 +9450,54 @@ code, pre, kbd, samp, .font-mono,
 
 .thinking-quote-text {
   margin: 0 !important;
-  font-size: 0.81rem !important;
-  line-height: 1.45 !important;
+  font-size: 0.96rem !important;
+  line-height: 1.5 !important;
   font-style: italic !important;
-  color: var(--text-secondary, #cbd5e1) !important;
-  letter-spacing: 0.01em !important;
-  font-weight: 450 !important;
+  color: #F8FAFC !important;
+  letter-spacing: -0.01em !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
   word-break: break-word !important;
 }
 
+.thinking-quote-author-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  margin-top: 0.15rem !important;
+}
+
+.thinking-quote-dash {
+  color: #38bdf8 !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+}
+
 .thinking-quote-author {
-  font-size: 0.72rem !important;
+  font-size: 0.82rem !important;
   font-weight: 600 !important;
-  color: var(--text-muted, #94a3b8) !important;
+  color: #38bdf8 !important;
   letter-spacing: 0.02em !important;
-  align-self: flex-start !important;
   font-style: normal !important;
 }
 
 .thinking-quote-proverb {
-  opacity: 0.8 !important;
+  opacity: 0.85 !important;
   font-style: italic !important;
 }
 
 /* Light Mode Overrides for Financial Quotes */
 [data-theme="light"] .thinking-quotes-box {
-  border-top-color: #e2e8f0 !important;
-  background: #f8fafc !important;
+  border-top-color: #E2E8F0 !important;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.03) !important;
 }
 
 [data-theme="light"] .thinking-quotes-badge {
+  background: rgba(2, 132, 199, 0.08) !important;
+  border-color: rgba(2, 132, 199, 0.25) !important;
   color: #0284c7 !important;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.1) !important;
 }
 
 [data-theme="light"] .thinking-quotes-icon {
@@ -9481,28 +9505,41 @@ code, pre, kbd, samp, .font-mono,
 }
 
 [data-theme="light"] .thinking-quotes-progress {
-  background: #e2e8f0 !important;
+  background: #E2E8F0 !important;
+}
+
+[data-theme="light"] .thinking-quotes-progress-bar {
+  background: linear-gradient(90deg, #0284c7 0%, #6366f1 100%) !important;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.4) !important;
 }
 
 [data-theme="light"] .thinking-quote-text {
-  color: #334155 !important;
+  color: #0F172A !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .thinking-quote-dash {
+  color: #0284c7 !important;
 }
 
 [data-theme="light"] .thinking-quote-author {
-  color: #64748b !important;
+  color: #0284c7 !important;
 }
 
 @media (max-width: 640px) {
   .thinking-quotes-inner {
-    padding: 0.55rem 0.65rem 0.65rem !important;
-    gap: 0.35rem !important;
+    padding: 0.75rem 0.85rem 0.85rem !important;
+    gap: 0.45rem !important;
   }
   .thinking-quote-text {
-    font-size: 0.78rem !important;
-    line-height: 1.4 !important;
+    font-size: 0.88rem !important;
+    line-height: 1.45 !important;
   }
   .thinking-quote-author {
-    font-size: 0.70rem !important;
+    font-size: 0.76rem !important;
+  }
+  .thinking-quotes-progress {
+    max-width: 75px !important;
   }
 }
 

@@ -9,6 +9,10 @@ function applyTheme(next: ThemeMode) {
   document.documentElement.setAttribute('data-theme', next);
   document.documentElement.classList.toggle('dark', next === 'dark');
   document.documentElement.classList.toggle('light', next === 'light');
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.toggle('dark', next === 'dark');
+    document.body.classList.toggle('light', next === 'light');
+  }
   try { localStorage.setItem('jaro_theme', next); } catch { /* ignore */ }
   window.dispatchEvent(new CustomEvent('jaro-theme-change', { detail: next }));
 }
@@ -22,7 +26,12 @@ export function useTheme() {
     let stored: ThemeMode = 'dark';
     try {
       const raw = localStorage.getItem('jaro_theme');
-      if (raw === 'dark' || raw === 'light') stored = raw;
+      if (raw === 'dark' || raw === 'light') {
+        stored = raw;
+      } else {
+        const docTheme = document.documentElement.getAttribute('data-theme');
+        if (docTheme === 'dark' || docTheme === 'light') stored = docTheme;
+      }
     } catch { /* ignore */ }
     queueMicrotask(() => {
       if (cancelled) return;

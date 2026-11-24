@@ -91,6 +91,17 @@ export async function classifyResearchQuery(
   context?: ConversationContext,
 ): Promise<QueryClassification> {
   if (isProjectContextQuery(query)) return fallbackClassification(query, context);
+
+  // Fast-path: Obvious conversational personal finance, budgeting, mutual funds or education with no company mentioned
+  const qLower = query.toLowerCase();
+  const fastConversational = (
+    /\b(where\s*(?:should|to|can)\s*i\s*invest|how\s*(?:should|to|can|do)\s*i\s*invest|want\s*to\s*invest|have\s+.*(?:rupees?|rs|inr|\d+).*invest|invest\s+(?:my\s+)?money|investing\s+advice|investment\s+advice|how\s*to\s*start\s*investing|invest\s+(?:for\s+)?beginners?|start\s*investing|what\s+is\s+(?:roe|roce|pe|pb|sip|nav|cagr|nifty|sensex|compounding|mutual\s*fund|index\s*fund)|difference\s+between|how\s+does\s+compounding|budgeting\s+rule)\b/i.test(qLower)
+  );
+  const fastCompanies = extractFallbackCompanies(query, context);
+  if (fastConversational && fastCompanies.length === 0 && (!context?.activeCompanies?.length || !/\b(it|its|they|their|that company|this stock)\b/i.test(qLower))) {
+    return fallbackClassification(query, context);
+  }
+
   const contextSummary = {
     activeCompanies: context?.activeCompanies?.map((c) => ({ name: c.name, ticker: c.ticker })) ?? [],
     activeSector: context?.activeSector ?? null,
@@ -102,7 +113,7 @@ export async function classifyResearchQuery(
     const result = await analyzeWithGroq({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt: `Conversation context:\n${JSON.stringify(contextSummary)}\n\nUser question:\n${query}`,
-      timeoutMs: 15_000,
+      timeoutMs: 4_000,
     });
     const intent = INTENTS.includes(result.intent as ResearchIntent)
       ? (result.intent as ResearchIntent)

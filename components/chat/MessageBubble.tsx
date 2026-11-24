@@ -36,6 +36,7 @@ import {
   replaceInternalCitations,
 } from './types';
 import { ThinkingPanel } from './ThinkingPanel';
+import { ThinkingBulbLogo } from '@/components/brand/ThinkingBulbLogo';
 
 interface SourceListProps {
   sources: ResearchSourceMeta[];
@@ -174,7 +175,7 @@ export function MessageBubble({ message, copied, onCopy, onSuggestion, onRetry }
         {/* Fallback spinner only if not streaming and no content/stages */}
         {!message.content && !isStreaming && (message.stages ?? []).length === 0 && (
           <div className="researching-state">
-            <LoaderCircle size={18} className="animate-spin text-accent" />
+            <ThinkingBulbLogo size={18} pulse={true} />
             <div className="researching-text">
               <strong style={{ fontSize: '0.92rem', fontWeight: 700, letterSpacing: '0.02em', color: 'var(--text-primary)' }}>Thinking...</strong>
             </div>

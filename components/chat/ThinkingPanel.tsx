@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronUp, ChevronDown, Database, FileText, BarChart2, Newspaper, Globe, Sparkles, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Database, FileText, BarChart2, Newspaper, Globe } from 'lucide-react';
+import { ThinkingBulbLogo } from '@/components/brand/ThinkingBulbLogo';
 import type { MessageStage } from './types';
 import type { ResearchSourceMeta } from '@/types/research';
 
@@ -109,11 +110,7 @@ export function ThinkingPanel({ stages, sources, isStreaming, startedAt }: Think
         title={collapsed ? 'View research process details' : 'Collapse research process details'}
       >
         <div className="thinking-compact-left">
-          {isStreaming ? (
-            <Loader2 size={13} className="thinking-spin-icon" />
-          ) : (
-            <Sparkles size={13} className="thinking-complete-icon" />
-          )}
+          <ThinkingBulbLogo size={13} pulse={isStreaming} />
           <span className="thinking-compact-status">
             <span className="thinking-done-text">Thought</span>
             {displayElapsed > 0 && (

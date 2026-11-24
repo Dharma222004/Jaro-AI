@@ -455,6 +455,8 @@ export function ResearchAssistant() {
               }}
             />
           ))}
+          {/* Bottom spacer ensures the final lines of the response can always scroll cleanly above the floating composer */}
+          <div className="assistant-bottom-spacer" style={{ height: '7.5rem', width: '100%', flexShrink: 0, pointerEvents: 'none' }} aria-hidden="true" />
         </div>
       </div>
 

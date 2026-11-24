@@ -8,6 +8,22 @@ interface ParsedListItem {
   text: string;
 }
 
+function cleanMarkdownArtifacts(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n/g, '\n')
+    // Strip leading `#*` or `##*` or `###*` artifacts
+    .replace(/^(#{1,6})\s*\*+\s*(.+?)\s*\*+$/gm, '$1 $2')
+    .replace(/^(#{1,6})\s*\*+\s*(.+)$/gm, '$1 $2')
+    .replace(/^(#{1,6})\*\s*(.+)$/gm, '$1 $2')
+    .replace(/^\*+\s*(#{1,6})\s*(.+?)\s*\*+$/gm, '$1 $2')
+    .replace(/^(#{1,6})\*+([^*])/gm, '$1 $2')
+    // Fix unspaced headers: "###Heading" -> "### Heading"
+    .replace(/^(#{1,6})([A-Za-z0-9])/gm, '$1 $2')
+    // Remove `#*` stuck at beginning of list items
+    .replace(/^(\s*[-*]\s*)#{1,6}\*?\s*/gm, '$1');
+}
+
 export function MarkdownAnswer({
   content,
   citationScope,
@@ -17,7 +33,7 @@ export function MarkdownAnswer({
   citationScope?: string;
   onCitationClick?: (sourceNumber: number) => void;
 }) {
-  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const lines = cleanMarkdownArtifacts(content).split('\n');
   const nodes: React.ReactNode[] = [];
   let index = 0;
 
@@ -116,10 +132,10 @@ export function MarkdownAnswer({
       continue;
     }
 
-    const heading = line.trim().match(/^(#{1,4})\s+(.+)$/);
+    const heading = line.trim().match(/^(#{1,6})\s*(.+)$/);
     if (heading) {
-      const level = heading[1].length;
-      const text = heading[2];
+      const level = Math.min(4, heading[1].length) as 1 | 2 | 3 | 4;
+      const text = heading[2].replace(/^\*+|\*+$/g, '').trim();
       const HeadingTag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4';
       nodes.push(<HeadingTag key={`h-${index}`}>{inline(text, citationScope, onCitationClick)}</HeadingTag>);
       index += 1;
@@ -256,8 +272,9 @@ function splitTableRow(line: string): string[] {
 }
 
 function inline(text: string, citationScope?: string, onCitationClick?: (sourceNumber: number) => void): React.ReactNode[] {
+  const sanitizedText = text.replace(/^(?:#{1,6}\*?|\*+#{1,6})\s*/, '');
   const pattern = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\)|\[\d+\]|\[[a-zA-Z][a-zA-Z0-9_-]*\]|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_))/g;
-  return text.split(pattern).filter(Boolean).map((part, index) => {
+  return sanitizedText.split(pattern).filter(Boolean).map((part, index) => {
     if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
       return <strong key={index}>{part.slice(2, -2)}</strong>;
     }

@@ -93,7 +93,7 @@ const CURATED_INDIAN_COMPANIES: Record<string, CuratedCompany> = {
     sector: 'Conglomerate / Energy',
     industry: 'Oil-to-Chemicals, Retail & Telecom',
     screenerSlug: 'RELIANCE',
-    aliases: ['reliance industries', 'ril', 'reliance ind', 'reliance industries limited'],
+    aliases: ['reliance industries', 'reliance', 'ril', 'reliance ind', 'reliance industries limited'],
   },
   TCS: {
     name: 'Tata Consultancy Services Limited',
@@ -809,11 +809,6 @@ const AMBIGUOUS_CLUSTERS: Record<string, CompanyCandidate[]> = {
     { name: 'Adani Power Limited', ticker: 'ADANIPOWER', exchange: 'NSE', description: 'Thermal and solar power producer' },
     { name: 'Adani Green Energy Limited', ticker: 'ADANIGREEN', exchange: 'NSE', description: 'Renewable energy generation specialist' },
   ],
-  reliance: [
-    { name: 'Reliance Industries Limited', ticker: 'RELIANCE', exchange: 'NSE', description: 'Oil-to-chemicals, retail, Jio telecom conglomerate' },
-    { name: 'Reliance Power Limited', ticker: 'RPOWER', exchange: 'NSE', description: 'Anil Ambani Group power generation utility' },
-    { name: 'Reliance Infrastructure Limited', ticker: 'RELINFRA', exchange: 'NSE', description: 'Anil Ambani Group power distribution, metro and EPC' },
-  ],
   mahindra: [
     { name: 'Mahindra & Mahindra Limited', ticker: 'M&M', exchange: 'NSE', description: 'SUV, farm equipment and commercial vehicles leader' },
     { name: 'Tech Mahindra Limited', ticker: 'TECHM', exchange: 'NSE', description: 'Digital transformation, IT and telecom consulting' },
@@ -996,9 +991,31 @@ export async function identifyCompany(rawQuery: string): Promise<CompanyResoluti
     }
   }
 
-  // 1c. Check for exact ambiguous clusters (e.g. user typed just "Tata", "Adani", "Reliance", or bare "HDFC")
+  // 1c. Check for exact ambiguous clusters (e.g. user typed just "Tata", "Adani", or bare "HDFC")
   if (AMBIGUOUS_CLUSTERS[cleaned] || (!hadTypo && AMBIGUOUS_CLUSTERS[corrected])) {
     const cluster = AMBIGUOUS_CLUSTERS[cleaned] || AMBIGUOUS_CLUSTERS[corrected];
+    // Check if the query actually specifies one of the candidates (e.g. "tata steel" or "reliance industries")
+    const rawLower = query.toLowerCase();
+    const specificMatch = cluster.find((candidate) =>
+      rawLower.includes(candidate.name.toLowerCase()) ||
+      rawLower.includes(candidate.ticker.toLowerCase()) ||
+      (CURATED_INDIAN_COMPANIES[candidate.ticker]?.aliases ?? []).some((alias) => rawLower.includes(alias))
+    );
+    if (specificMatch) {
+      const curated = CURATED_INDIAN_COMPANIES[specificMatch.ticker];
+      return {
+        resolved: true,
+        company: curated ? { ...curated } : {
+          name: specificMatch.name,
+          ticker: specificMatch.ticker,
+          exchange: specificMatch.exchange,
+          country: 'India',
+          sector: 'Indian Listed Equity',
+          industry: 'Exchange Listed Security',
+          screenerSlug: specificMatch.ticker,
+        },
+      };
+    }
     return {
       resolved: false,
       candidates: cluster,

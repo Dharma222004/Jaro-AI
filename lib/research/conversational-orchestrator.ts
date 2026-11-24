@@ -440,7 +440,13 @@ async function handleCompanyResearch(
       resolved.push(existing);
       continue;
     }
-    const resolution = await resolveCompanyFromQuery(companyQuery);
+    let resolution = await resolveCompanyFromQuery(companyQuery);
+    if (!resolution.resolved && companyQuery.toLowerCase() !== query.toLowerCase()) {
+      const fullQueryRes = await resolveCompanyFromQuery(query);
+      if (fullQueryRes.resolved) {
+        resolution = fullQueryRes;
+      }
+    }
     if (resolution.resolved) {
       resolved.push(resolution.company);
       if (resolution.interpretation) {

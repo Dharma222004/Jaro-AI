@@ -26,9 +26,13 @@ function cleanMarkdownArtifacts(raw: string): string {
     .replace(/^(\s*)\*\s*(#{1,6})\s*/gm, '$1$2 ')
     // Fix unspaced headers: "###Heading" -> "### Heading"
     .replace(/^(#{1,6})([A-Za-z0-9])/gm, '$1 $2')
-    // Remove `#*` or `*#` stuck at beginning of list items
-    .replace(/^(\s*[-*]\s*)[#*]+\s*/gm, '$1')
-    .replace(/^(\s*\d+\.\s*)[#*]+\s*/gm, '$1')
+    // Strip ONLY broken combinations of # and * stuck at beginning of list items (never plain **)
+    .replace(/^(\s*[-*]\s*)(?:#+\*+|\*+#+)\s*/gm, '$1')
+    .replace(/^(\s*\d+\.\s*)(?:#+\*+|\*+#+)\s*/gm, '$1')
+    // Balance list item headers if opening ** was omitted: '1. Title** – ' -> '1. **Title** – '
+    .replace(/^(\s*(?:\d+\.|[-*])\s*)(?!\*\*)([^\n*]+?)\*\*\s*([–—-]|:)/gm, '$1**$2** $3')
+    // Break jammed section headers after sentence endings
+    .replace(/([.!?])\s+(Institutional Framework[^\n.:]+?)(?:\s+Since|\.|$)/gi, '$1\n\n### $2\n\nSince')
     // Break metric summaries after periods onto new line (including any surrounding asterisks)
     .replace(/([.!?])\s+(\*?\*?(?:Market Cap|ISIN|Exchange|CMP|P\/E|ROE|ROCE|52-Week|Revenue|Net Profit|EBITDA|Debt|EPS):(?:\*{1,2})?)/gi, '$1\n\n$2')
     // Fix ISIN | Exchange compound bold
@@ -360,12 +364,12 @@ function inline(text: string, citationScope?: string, onCitationClick?: (sourceN
     if (/^\[[a-zA-Z][a-zA-Z0-9_-]*\]$/.test(part)) {
       return <span className="source-citation" key={index}>{part.slice(1, -1)}</span>;
     }
-    // Clean any stray asterisks or hashes from fallback plain text parts
+    // If a token reached this fallback plain-text branch, it is NOT part of any valid markdown formatting.
+    // Strip any stray asterisks or hashes completely so raw * or # NEVER appear in the UI.
     const cleaned = part
-      .replace(/(?<!\S)\*+(?!\S)/g, '')
+      .replace(/\*+/g, '')
       .replace(/(?<!\S)#+(?!\S)/g, '')
-      .replace(/^\*+([A-Za-z0-9])/, '$1')
-      .replace(/([A-Za-z0-9:])\*+$/, '$1');
+      .replace(/^#+\s*/, '');
     return <React.Fragment key={index}>{cleaned}</React.Fragment>;
   });
 }

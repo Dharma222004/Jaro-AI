@@ -85,6 +85,12 @@ What would you like to explore today?`);
   if (/\bSIP\b|\bmutual funds?\b|\bindex funds?\b|\b(?:flexi|multi|small|mid|large)[ -]?cap funds?\b/i.test(query)) {
     classification = { ...classification, intent: 'mutual_fund_research' };
   }
+  if (
+    classification.companies.length === 0 &&
+    /\b(where\s*(?:should|to|can)\s*i\s*invest|how\s*(?:should|to|can|do)\s*i\s*invest|want\s*to\s*invest|have\s+.*(?:rupees?|rs|inr|\d+).*invest|invest\s+(?:my\s+)?money|investing\s+advice|investment\s+advice|how\s*to\s*start\s*investing|invest\s+(?:for\s+)?beginners?|start\s*investing)\b/i.test(query)
+  ) {
+    classification = { ...classification, intent: 'investment_planning' };
+  }
   callbacks.onIntent?.(classification);
   callbacks.onStage?.('understanding', 'completed', intentLabel(classification.intent));
 
@@ -120,17 +126,50 @@ What would you like to explore today?`);
   }
 
   if (classification.intent === 'investment_planning') {
-    const planning = buildPlanningResponse(query, context);
-    callbacks.onContext?.(planning.context);
-    callbacks.onDelta(planning.markdown);
-    callbacks.onSuggestions?.(['My horizon is 10 years and risk tolerance is moderate', 'Explain stocks versus mutual funds', 'How should I review a diversified portfolio?']);
+    const nextContext: ConversationContext = { ...context, lastIntent: classification.intent };
+    callbacks.onContext?.(nextContext);
+    callbacks.onStage?.('analysis', 'running', 'Synthesizing investment planning and personal finance guidance');
+    await streamGroundedAnswer({
+      query,
+      history,
+      intent: 'investment_planning',
+      evidence: `You are Jaro AI, a premier personal finance and investment planning assistant for Indian investors.
+Key principles to address:
+1. Warmly acknowledge and validate the user's specific query, financial situation, or amount (e.g. ₹500, ₹5,000, student savings, monthly income). Address them naturally (e.g. "Brother", friend, etc.).
+2. For small amounts like ₹500: Highlight that in India, ₹500 is completely sufficient to begin investing via Mutual Fund SIPs (Nifty 50 Index funds, Flexi-cap funds allow ₹100-₹500 SIPs), Liquid Funds for short-term liquidity, or digital gold. Emphasize that building the discipline of investing matters far more than the initial amount.
+3. Show concrete compounding potential: Demonstrate how a regular contribution (e.g. ₹500/month or similar) grows over 5, 10, and 15 years at a realistic 12% annual return using a clean Markdown table.
+4. Explain the sound financial hierarchy: Emergency fund first (3-6 months expenses in savings/liquid funds), adequate term/health insurance, then low-cost index/mutual funds, then direct equities only after building core savings.
+5. Provide actionable steps in India: Choosing Direct-Growth plans on SEBI-regulated platforms (Groww, Zerodha Coin, Kuvera, MF Central), KYC requirements (PAN, Aadhaar, bank account).
+6. Disclaim clearly and politely that guidance is for financial education and suitability planning under standard personal finance principles, not SEBI-registered individualized stock tipping.`,
+      sources: [],
+      timestamp,
+      callbacks,
+      memoryContext: formatMemoryContext(context.retrievedMemories ?? []),
+    });
+    callbacks.onStage?.('analysis', 'completed', 'Investment guidance complete');
+    callbacks.onSuggestions?.(['How do I start a ₹500 SIP on Groww or Zerodha?', 'What is a Nifty 50 Index Fund?', 'How much should I keep in an emergency fund?']);
     return;
   }
 
   if (classification.intent === 'portfolio_analysis') {
-    callbacks.onContext?.({ ...context, lastIntent: 'portfolio_analysis' });
-    callbacks.onDelta(buildPortfolioIntakeResponse(query));
-    callbacks.onSuggestions?.(['My holdings are: TCS 10 shares, HDFC Bank 15 shares', 'How do I identify sector concentration?', 'Explain mutual fund overlap']);
+    const nextContext: ConversationContext = { ...context, lastIntent: classification.intent };
+    callbacks.onContext?.(nextContext);
+    callbacks.onStage?.('analysis', 'running', 'Analyzing portfolio allocation, diversification, and risk');
+    await streamGroundedAnswer({
+      query,
+      history,
+      intent: 'portfolio_analysis',
+      evidence: `You are Jaro AI, an institutional-grade portfolio intelligence assistant.
+1. If the user provided a list of stocks, mutual funds, or amounts: Evaluate their asset allocation, sector concentration risk, large/mid/small cap distribution, and single-stock exposure (ideal cap < 10-15% per stock, < 25-30% per sector).
+2. If holdings are missing: Provide a clear, educational overview of how a balanced Indian portfolio is structured (e.g. 60-70% Large Cap / Index, 20-30% Mid Cap, 10% Gold/Debt), key red flags (over-diversification with 30+ stocks vs high concentration with 2 stocks in the same sector), and invite them to share their portfolio holdings for tailored analysis.
+3. Include standard risk management principles and SEBI educational disclosure.`,
+      sources: [],
+      timestamp,
+      callbacks,
+      memoryContext: formatMemoryContext(context.retrievedMemories ?? []),
+    });
+    callbacks.onStage?.('analysis', 'completed', 'Portfolio analysis complete');
+    callbacks.onSuggestions?.(['Review my holdings: TCS, HDFC Bank, ITC', 'What is the ideal stock-to-mutual fund ratio?', 'How do I detect sector concentration?']);
     return;
   }
 
@@ -144,10 +183,28 @@ What would you like to explore today?`);
     return;
   }
 
-  if (classification.intent === 'mutual_fund_research' && /\b(sip|lump.?sum|future value|calculator|project)\b/i.test(query)) {
-    callbacks.onContext?.({ ...context, lastIntent: 'mutual_fund_research' });
-    callbacks.onDelta(buildFundProjection(query));
-    callbacks.onSuggestions?.(['Compare direct and regular plans', 'How should I evaluate an index fund?', 'Explain rolling returns and maximum drawdown']);
+  if (classification.intent === 'mutual_fund_research') {
+    const nextContext: ConversationContext = { ...context, lastIntent: classification.intent };
+    callbacks.onContext?.(nextContext);
+    callbacks.onStage?.('analysis', 'running', 'Analyzing mutual fund strategies, SIP compounding, and categories');
+    await streamGroundedAnswer({
+      query,
+      history,
+      intent: 'mutual_fund_research',
+      evidence: `You are Jaro AI, an expert mutual fund research and advisory intelligence assistant for Indian investors.
+1. Directly answer the user's specific mutual fund or SIP question with depth and clarity.
+2. If an amount or duration is mentioned (or general SIP query): Provide clear, mathematical compounding tables showing invested capital vs expected future corpus at 10%, 12%, and 14% CAGR across typical milestones (5, 10, 15, 20 years).
+3. Compare categories clearly: Nifty 50 Index Funds (low cost, passive), Flexi Cap Funds (active dynamic cap allocation), Large & Mid Cap, and Liquid/Debt funds for emergency funds.
+4. Emphasize choosing Direct-Growth plans (0.5% - 1.5% lower expense ratio compared to Regular plans, which compounds to lakhs over decades).
+5. Mention taxation basics in India (Equity LTCG 12.5% above ₹1.25 Lakh, STCG 20%).
+6. Frame guidance educationally under standard AMFI and SEBI guidelines.`,
+      sources: [],
+      timestamp,
+      callbacks,
+      memoryContext: formatMemoryContext(context.retrievedMemories ?? []),
+    });
+    callbacks.onStage?.('analysis', 'completed', 'Mutual fund analysis complete');
+    callbacks.onSuggestions?.(['What is the difference between Direct and Regular plans?', 'Show a 10-year compounding calculation for ₹2,000/month', 'Best index funds for beginners']);
     return;
   }
 
@@ -747,7 +804,31 @@ async function streamGroundedAnswer(params: {
   memoryContext?: string;
 }) {
   const sourceIndex = params.sources.map((source, index) => `[${index + 1}] ${source.title} — ${source.url}`).join('\n');
-  const systemPrompt = `You are Jaro AI, a source-grounded Indian equity research assistant.
+  const isConversationalIntent = [
+    'financial_education',
+    'investment_planning',
+    'portfolio_analysis',
+    'mutual_fund_research',
+  ].includes(params.intent) || (!params.companyName && params.sources.length === 0);
+
+  const conversationalSystemPrompt = `You are Jaro AI, an intelligent, empathetic, and highly knowledgeable conversational AI financial mentor and personal finance companion for Indian investors.
+You provide warm, practical, structured, and insightful financial guidance, investment planning, mutual fund intelligence, and education.
+
+CONVERSATIONAL CHATBOT PRINCIPLES:
+1. Warm, engaging, and mentor-like tone: Respond naturally, warmly, and respectfully. If the user addresses you conversationally (e.g. "Brother", "Friend", "Hey Jaro"), warmly acknowledge them. Be encouraging, clear, and easy to understand.
+2. Directly answer the user's specific scenario: Immediately answer their specific situation, amount, or question. For example, if they mention ₹500, ₹1,000, or a modest savings amount, warmly validate that even ₹500 is a fantastic starting point in India to start investing via Mutual Fund SIPs, explaining that building discipline and compounding early matters far more than starting capital.
+3. Practical Indian financial landscape:
+   - Micro-investing & SIPs: Highlight that top Nifty 50 Index Funds, Large Cap, and Flexi Cap Mutual Funds allow SIPs starting at ₹100 or ₹500 per month.
+   - Direct-Growth advantage: Always recommend Direct-Growth mutual fund plans over Regular plans to save 0.5%–1.5% in distributor commissions each year, which compounds to significant wealth over time.
+   - User-friendly platforms: Mention verified SEBI-regulated platforms (e.g., Groww, Zerodha Coin, Indmoney, MF Central) and basic KYC requirements (PAN card, Aadhaar, verified bank account).
+   - Prudent financial hierarchy: Advise creating an emergency fund (in savings account or liquid mutual funds) before risking money in equities.
+4. Compounding calculations: When discussing amounts, SIPs, or horizons, provide a clean, readable Markdown table showing compounding growth (e.g. showing invested capital vs estimated future value at 12% CAGR across 5, 10, 15, and 20 years).
+5. Educational & Compliance: Clarify politely and naturally that this guidance provides financial education and model scenarios based on sound personal finance principles, rather than SEBI-registered individualized stock tipping.
+6. Clean formatting: Use clean Markdown with clear headings (##, ###), bullet points, bold highlights, and tables where appropriate.
+7. STRICT DATA SOURCE RULE — NEVER mention "Yahoo Finance", "Upstox", "Angel One", "mStock", "Groq", "NVIDIA", "Screener.in", or any internal/third-party data provider name. Refer only to verified market data or official disclosures if ever citing data.
+8. Do NOT append clinical "Data note" footers or robotic "Not available in retrieved data" disclaimers. End with an encouraging closing and offer relevant follow-ups.`;
+
+  const researchSystemPrompt = `You are Jaro AI, a source-grounded Indian equity research assistant.
 Answer the exact question in polished Markdown using clear headings, concise paragraphs, bullets, and a table when metrics or comparisons are involved.
 
 NON-NEGOTIABLE RULES:
@@ -758,21 +839,24 @@ NON-NEGOTIABLE RULES:
 5. Say which reporting period a figure belongs to when the evidence provides it.
 6. Real-time market quotes reflect active exchange trading hours.
 7. Do not repeat the entire previous report for a focused follow-up. Answer the follow-up directly.
-8. ${params.intent === 'financial_education' ? 'For personal finance and general questions, provide a structured, practical, and comprehensive guide with clear bullet points, bold headings, and practical Indian financial context (INR, mutual funds, taxation rules where applicable).' : `End with a short “Data note” containing retrieval time ${params.timestamp} and material limitations.`}
-9. For general personal finance and education, explain the concepts clearly and conversationally without pretending sources were retrieved.
-10. If sources conflict, identify the conflict instead of silently choosing a figure.
-11. Do not create a separate source list in the answer; Jaro AI renders the numbered Sources & References panel from the supplied index.
-12. STRICT DATA SOURCE RULE — NEVER mention "Yahoo Finance", "Upstox", "Angel One", "mStock", "Groq", "NVIDIA", "Screener.in", or any internal/third-party data provider name in your answer text. Never add source attribution footnotes like "*Source: Yahoo Finance*" or "*Source: ...*". Refer to data only as "exchange data", "regulatory filings", "official disclosures", or "verified research sources". This rule is ABSOLUTE — no exceptions.
-13. Always directly and thoroughly answer the specific company or security the user asks about in their latest message. If the user asks whether it is the right time to buy or enter, provide an objective, data-grounded institutional evaluation covering valuation multiples, growth, balance sheet resilience, key risks, and current market levels.`;
-  const periodGuardrail = `\n13. Preserve reporting periods exactly as supplied. Never infer a fiscal quarter or financial year from a month unless the evidence explicitly states that fiscal label.`;
+8. End with a short “Data note” containing retrieval time ${params.timestamp} and material limitations.
+9. If sources conflict, identify the conflict instead of silently choosing a figure.
+10. Do not create a separate source list in the answer; Jaro AI renders the numbered Sources & References panel from the supplied index.
+11. STRICT DATA SOURCE RULE — NEVER mention "Yahoo Finance", "Upstox", "Angel One", "mStock", "Groq", "NVIDIA", "Screener.in", or any internal/third-party data provider name in your answer text. Never add source attribution footnotes like "*Source: Yahoo Finance*" or "*Source: ...*". Refer to data only as "exchange data", "regulatory filings", "official disclosures", or "verified research sources". This rule is ABSOLUTE — no exceptions.
+12. Always directly and thoroughly answer the specific company or security the user asks about in their latest message. If the user asks whether it is the right time to buy or enter, provide an objective, data-grounded institutional evaluation covering valuation multiples, growth, balance sheet resilience, key risks, and current market levels.`;
+
+  const systemPrompt = isConversationalIntent ? conversationalSystemPrompt : researchSystemPrompt;
+  const periodGuardrail = !isConversationalIntent
+    ? `\n13. Preserve reporting periods exactly as supplied. Never infer a fiscal quarter or financial year from a month unless the evidence explicitly states that fiscal label.`
+    : '';
   const memoryRules = params.memoryContext ? `
-14. Use MEMORY CONTEXT only when directly relevant. It may contain prior user requests, preferences, or dated facts.
-15. A prior research question does not prove ownership, a transaction, or a user decision.
-16. Never reuse a stored market price as current data. Preserve source, reporting period, retrieval timestamp, confidence and verification limitations.
-17. Explicit new user instructions override procedural or profile memory.` : '';
-  const specialistRules = params.intent === 'sector_ranking'
+${isConversationalIntent ? '9' : '14'}. Use MEMORY CONTEXT only when directly relevant. It may contain prior user requests, preferences, or dated facts.
+${isConversationalIntent ? '10' : '15'}. A prior research question does not prove ownership, a transaction, or a user decision.
+${isConversationalIntent ? '11' : '16'}. Never reuse a stored market price as current data. Preserve source, reporting period, retrieval timestamp, confidence and verification limitations.
+${isConversationalIntent ? '12' : '17'}. Explicit new user instructions override procedural or profile memory.` : '';
+  const specialistRules = !isConversationalIntent && params.intent === 'sector_ranking'
     ? `\nSECTOR RANKING RULES: Compare sectors using a transparent 100-point analytical score: growth outlook 20, demand 15, economics/profitability 15, competition 10, policy support 10, leading-company health 10, valuation 10, risk 10. Scores are qualitative evidence summaries, not probabilities. Show each component, missing evidence and source citations. Do not call a popular sector investable if valuation or risk evidence is adverse.`
-    : params.intent === 'mutual_fund_research'
+    : !isConversationalIntent && params.intent === 'mutual_fund_research'
       ? `\nMUTUAL FUND RULES: Prioritize AMFI, AMC factsheets, scheme documents and portfolio disclosures. Distinguish direct/regular and growth/IDCW plans. Do not rank schemes when expense, benchmark, period, risk and portfolio evidence are missing. Do not present suitability advice without horizon, objective and risk tolerance. Label return projections hypothetical.`
       : '';
 
@@ -781,13 +865,15 @@ NON-NEGOTIABLE RULES:
     ...params.history.slice(-8).map((message) => ({ role: message.role, content: message.content.slice(0, 5000) })),
     {
       role: 'user',
-      content: `Intent: ${params.intent}\n${params.companyName ? `Company: ${params.companyName}\n` : ''}Question: ${params.query}\n\nMEMORY CONTEXT:\n${params.memoryContext || 'No relevant persistent memory retrieved.'}\n\nEVIDENCE:\n${params.evidence.slice(0, 42_000)}\n\nSOURCE INDEX:\n${sourceIndex || 'No external sources required for this educational explanation.'}`,
+      content: isConversationalIntent
+        ? `User question: ${params.query}\n\nCORE GUIDANCE PRINCIPLES:\n${params.evidence}${params.memoryContext ? `\n\nMEMORY CONTEXT:\n${params.memoryContext}` : ''}`
+        : `Intent: ${params.intent}\n${params.companyName ? `Company: ${params.companyName}\n` : ''}Question: ${params.query}\n\nMEMORY CONTEXT:\n${params.memoryContext || 'No relevant persistent memory retrieved.'}\n\nEVIDENCE:\n${params.evidence.slice(0, 42_000)}\n\nSOURCE INDEX:\n${sourceIndex || 'No external sources required for this educational explanation.'}`,
     },
   ];
 
   await streamChatWithGroq({
     messages,
-    temperature: 0.15,
+    temperature: isConversationalIntent ? 0.35 : 0.15,
     maxTokens: 5000,
     onDelta: params.callbacks.onDelta,
   });
@@ -1446,6 +1532,10 @@ function suggestionsFor(intent: ResearchIntent, context: ConversationContext): s
     if (intent === 'risk_assessment') return [`How strong is ${company}'s balance sheet?`, `What should I monitor next quarter?`, `Compare it with a peer`];
     return [`What are ${company}'s major risks?`, 'Explain its debt and cash flow', 'Compare it with its closest listed peer'];
   }
+  if (intent === 'investment_planning') return ['How do I start a ₹500 SIP on Groww or Zerodha?', 'What is a Nifty 50 Index Fund?', 'How much should I keep in an emergency fund?'];
+  if (intent === 'mutual_fund_research') return ['What is the difference between Direct and Regular plans?', 'Show a 10-year compounding calculation for ₹2,000/month', 'Best index funds for beginners'];
+  if (intent === 'portfolio_analysis') return ['Review my holdings: TCS, HDFC Bank, ITC', 'What is the ideal stock-to-mutual fund ratio?', 'How do I detect sector concentration?'];
+  if (intent === 'financial_education') return ['How do mutual funds work?', 'What is the 50-30-20 budgeting rule?', 'How does compounding work over 10 years?'];
   if (intent === 'market_analysis') return ['Which sectors are holding up best?', 'How are FII and DII flows affecting the market?', 'Find low-debt companies near 52-week lows'];
   if (intent === 'sector_analysis') return ['Which listed companies lead this sector?', 'What are the sector’s main risks?', 'Screen the sector for low debt'];
   return ['Explain ROE vs ROCE', 'Find companies with revenue growth and low debt', 'Why is the Indian market moving today?'];

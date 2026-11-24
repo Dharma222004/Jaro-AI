@@ -147,7 +147,7 @@ function fallbackIntent(query: string, context?: ConversationContext): ResearchI
   if (/\b(mutual fund|index fund|flexi.?cap fund|sip|lump.?sum|expense ratio|amfi|fund manager)\b/.test(q)) return 'mutual_fund_research';
   if (/\b(my portfolio|my holdings|portfolio allocation|sector concentration|fund overlap|unrealised|unrealized)\b/.test(q)) return 'portfolio_analysis';
   if (isProjectContextQuery(query)) return 'project_context';
-  if (/\b(where should i invest|how should i allocate|asset allocation|i can invest|monthly investment|build a diversified portfolio)\b/.test(q)) return 'investment_planning';
+  if (/\b(where should i invest|where to invest|where can i invest|how should i invest|how do i invest|how to invest|how can i invest|can i invest|want to invest|have .* to invest|have .* rupees|have .* rs|allocate|asset allocation|i can invest|monthly investment|build a diversified portfolio|investing for beginners|investment advice|investment suggestion|start investing)\b/.test(q)) return 'investment_planning';
   if (/\b(which sectors?|sector ranking|compare .* sectors?|next five years)\b/.test(q)) return 'sector_ranking';
   if (/\b(compare|versus|vs\.?|which (?:one |company )?is better)\b/.test(q)) return 'stock_comparison';
   if (/\b(screen|find|identify|companies with|stocks with|high roce|high roe|low debt|cash flow|52.?week low|institutional holding)\b/.test(q)) return 'stock_screening';

@@ -12,12 +12,15 @@ export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const query = typeof body.message === 'string' && body.message.trim()
-      ? body.message.trim()
-      : typeof body.query === 'string'
-        ? body.query.trim()
-        : '';
-    if (!query) return NextResponse.json({ error: 'A research question is required.' }, { status: 400 });
+    const query = (
+      typeof body.message === 'string' && body.message.trim() ? body.message.trim() :
+      typeof body.query === 'string' && body.query.trim() ? body.query.trim() :
+      typeof body.prompt === 'string' && body.prompt.trim() ? body.prompt.trim() :
+      typeof body.text === 'string' && body.text.trim() ? body.text.trim() :
+      typeof body.content === 'string' && body.content.trim() ? body.content.trim() :
+      ''
+    );
+    if (!query) return NextResponse.json({ error: 'A message or question is required.' }, { status: 400 });
     if (query.length > 2_000) return NextResponse.json({ error: 'The question is too long.' }, { status: 400 });
 
     const history: ConversationHistoryMessage[] = Array.isArray(body.history)

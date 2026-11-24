@@ -169,6 +169,7 @@ export function MessageBubble({ message, copied, onCopy, onSuggestion, onRetry }
             sources={isStreaming ? [] : (message.sources ?? [])}
             isStreaming={isStreaming}
             startedAt={message.createdAt}
+            hasContent={Boolean(message.content && message.content.trim().length > 0)}
           />
         )}
 

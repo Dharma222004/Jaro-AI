@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronUp, ChevronDown, Database, FileText, BarChart2, Newspaper, Globe } from 'lucide-react';
 import { ThinkingBulbLogo } from '@/components/brand/ThinkingBulbLogo';
+import { ThinkingQuotes } from './ThinkingQuotes';
 import type { MessageStage } from './types';
 import type { ResearchSourceMeta } from '@/types/research';
 
@@ -69,9 +70,10 @@ interface ThinkingPanelProps {
   sources: ResearchSourceMeta[];
   isStreaming: boolean;
   startedAt: string;
+  hasContent?: boolean;
 }
 
-export function ThinkingPanel({ stages, sources, isStreaming, startedAt }: ThinkingPanelProps) {
+export function ThinkingPanel({ stages, sources, isStreaming, startedAt, hasContent }: ThinkingPanelProps) {
   const [collapsed, setCollapsed] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -127,6 +129,9 @@ export function ThinkingPanel({ stages, sources, isStreaming, startedAt }: Think
           {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
         </div>
       </button>
+
+      {/* Rotating Financial Quotes during AI Thinking / Processing */}
+      <ThinkingQuotes isStreaming={isStreaming} hasContent={hasContent} />
 
       {!collapsed && (
         <div className="thinking-compact-drawer">

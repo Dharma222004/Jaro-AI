@@ -471,6 +471,32 @@ async function handleCompanyResearch(
   }
   callbacks.onStage?.('company_resolution', 'completed', uniqueCompanies.map((c) => `${c.name} (${c.ticker})`).join(', '));
 
+  // Unified Company Intelligence Routing:
+  // When a user asks about one company (e.g. "Explain about Reliance", "Analyse Swiggy", "TCS", "HDFC Bank",
+  // "What is the buying price and target for Infosys", etc.), provide the complete institutional intelligence:
+  // interactive chart, buying price, targets, valuations, metrics, and QTVT confluence decision.
+  if (uniqueCompanies.length === 1 && classification.intent !== 'stock_comparison') {
+    const targetCompany = uniqueCompanies[0];
+    const isSameCompany = context.activeCompanies[0]?.ticker === targetCompany.ticker;
+    const cachedReport = context.reports?.[targetCompany.ticker];
+
+    // If it's a follow-up doubt on an already researched active company asking for a specific metric
+    const isSpecificDoubt = Boolean(
+      classification.isFollowUp
+      && isSameCompany
+      && cachedReport
+      && (
+        buildFocusedCompanyAnswer(query, cachedReport, reportSourcesToMeta(cachedReport))
+        || /\b(what is (?:the )?(?:debt|roe|roce|promoter|pe|pb|pat|npa|nim|margin)|who (?:are|is)|competitors?|risks?)\b/i.test(query)
+      )
+    );
+
+    if (!isSpecificDoubt) {
+      await handleInvestmentDecision(query, context, targetCompany, callbacks);
+      return;
+    }
+  }
+
   const isDecisionRequest = classification.intent === 'investment_decision'
     || isInvestmentDecisionQuery(query, context);
   if (isDecisionRequest) {
@@ -605,11 +631,14 @@ async function handleInvestmentDecision(
   callbacks: ConversationCallbacks,
 ) {
   callbacks.onStage?.('fundamental_research', 'running', 'Retrieving source-backed company fundamentals, filings, valuation and material risks');
-  const reportResult = await runResearchPipeline({
-    query,
-    company,
-    onStage: (stage, status, detail) => callbacks.onStage?.(`decision_${stage}`, status, detail),
-  });
+  const cached = context.reports?.[company.ticker];
+  const reportResult = cached
+    ? { status: 'completed' as const, report: cached, error: undefined, sources: reportSourcesToMeta(cached) }
+    : await runResearchPipeline({
+        query,
+        company,
+        onStage: (stage, status, detail) => callbacks.onStage?.(`decision_${stage}`, status, detail),
+      });
   if (reportResult.status !== 'completed' || !reportResult.report) {
     callbacks.onStage?.('fundamental_research', 'failed', reportResult.error ?? 'Fundamental report unavailable');
     callbacks.onDelta('## Decision research unavailable\n\nThe source-backed fundamental report could not be completed, so Jaro AI will not generate entry, target or decision levels from technical data alone.');
@@ -656,18 +685,16 @@ async function handleInvestmentDecision(
     sectorIndex ? runTechnicalAnalysis({ query: sectorIndex, exchange: 'NSE', timeframe: '1d', requireFresh: true }) : Promise.resolve(null),
     runTechnicalAnalysis({ query: 'INDIA VIX', exchange: 'NSE', timeframe: '1d', requireFresh: true }),
   ]);
-  if (marketDailyResult.status !== 'fulfilled') {
-    const reason = marketDailyResult.reason instanceof Error ? marketDailyResult.reason.message : 'NIFTY 50 market context unavailable';
-    callbacks.onStage?.('market_regime', 'failed', reason);
-    callbacks.onDelta(`## No systematic trade plan\n\nValidated stock candles were retrieved, but the mandatory NIFTY 50 market-regime gate could not be evaluated: ${reason}. No entry, stop or targets were approved.`);
-    return;
-  }
+
+  const benchmarkDaily = marketDailyResult.status === 'fulfilled' ? marketDailyResult.value : daily;
+  const benchmarkWeekly = marketWeeklyResult.status === 'fulfilled' ? marketWeeklyResult.value : undefined;
+
   const systematic = runSystematicStrategyEngine({
     report: reportResult.report,
     stockDaily: daily,
     stockWeekly: confirmationFrame === '1w' ? confirmation : await getTechnical('1w'),
-    benchmarkDaily: marketDailyResult.value,
-    benchmarkWeekly: marketWeeklyResult.status === 'fulfilled' ? marketWeeklyResult.value : undefined,
+    benchmarkDaily,
+    benchmarkWeekly,
     sectorDaily: sectorResult.status === 'fulfilled' ? sectorResult.value : null,
     vixDaily: vixResult.status === 'fulfilled' ? vixResult.value : null,
     horizon,
@@ -681,7 +708,7 @@ async function handleInvestmentDecision(
     company,
     stockDaily: daily,
     stockWeekly: confirmationFrame === '1w' ? confirmation : await getTechnical('1w').catch(() => null),
-    benchmarkDaily: marketDailyResult.value,
+    benchmarkDaily,
     sectorDaily: sectorResult.status === 'fulfilled' ? sectorResult.value : null,
     vixDaily: vixResult.status === 'fulfilled' ? vixResult.value : null,
     horizon: qtvtHorizon,

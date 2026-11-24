@@ -134,6 +134,34 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
         </div>
       </div>
 
+      {/* Valuation Summary Strip (Bear, Base Fair Value, Bull) */}
+      {q && q.vs?.fairValue && (
+        <div className="valuation-summary-strip">
+          <div className="valuation-summary-col">
+            <span className="valuation-summary-label">Bear Scenario</span>
+            <strong className="valuation-summary-val bear">₹{q.vs.fairValue.bear.toLocaleString('en-IN')}</strong>
+            <small className="valuation-summary-note">Conservative multiple</small>
+          </div>
+          <div className="valuation-summary-col highlighted">
+            <span className="valuation-summary-label">Base Fair Value ({q.vs.fiscalYearForward ?? 'FY27'})</span>
+            <strong className="valuation-summary-val base">₹{q.vs.fairValue.base.toLocaleString('en-IN')}</strong>
+            <span className={`valuation-safety-tag ${q.vs.fairValue.marginOfSafetyPct >= 0 ? 'positive' : 'negative'}`}>
+              {q.vs.fairValue.marginOfSafetyPct >= 0 ? '+' : ''}{q.vs.fairValue.marginOfSafetyPct}% Margin of Safety
+            </span>
+          </div>
+          <div className="valuation-summary-col">
+            <span className="valuation-summary-label">Bull Scenario</span>
+            <strong className="valuation-summary-val bull">₹{q.vs.fairValue.bull.toLocaleString('en-IN')}</strong>
+            <small className="valuation-summary-note">Franchise expansion</small>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Technical Chart Canvas */}
+      {result.technical?.primary && (
+        <TechnicalChart initial={result.technical.primary} />
+      )}
+
       {/* Entry, Targets & Risk Scenarios */}
       <div className="decision-levels-heading">
         <div>
@@ -346,9 +374,6 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
           </div>
         </details>
       )}
-
-      {/* Interactive Technical Chart Canvas */}
-      <TechnicalChart initial={result.technical.primary} />
     </div>
   );
 }

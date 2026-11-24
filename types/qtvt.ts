@@ -21,7 +21,7 @@ export interface QtvtFqsFactor {
   score: number;
   weight: number;
   evidence: string;
-  status: 'PASS' | 'FAIL' | 'UNVERIFIED';
+  status: 'PASS' | 'FAIL' | 'UNVERIFIED' | 'N/A';
 }
 
 export interface QtvtFqsResult {
@@ -41,6 +41,9 @@ export interface QtvtFairValue {
   expectedReturnPct: number;
   marginOfSafetyPct: number;
   methodology: string;
+  formula?: string;
+  coe?: number;
+  sustainableGrowth?: number;
 }
 
 export interface QtvtVsResult {
@@ -53,6 +56,8 @@ export interface QtvtVsResult {
   forwardPeg?: number | null;
   fcfYieldPct?: number | null;
   gsecSpreadBps?: number | null;
+  fiscalYearCurrent?: string;
+  fiscalYearForward?: string;
   factors: Array<{ name: string; score: number; weight: number; evidence: string }>;
 }
 
@@ -61,10 +66,15 @@ export interface QtvtTrendResult {
   rsScore: number;
   rsPercentile: number;
   rsLineStatus: 'outperforming' | 'in-line' | 'underperforming';
+  rsVsNifty500Pct: number;
+  rsVsBankNiftyPct?: number | null;
   regime: string;
   sma200Slope: 'rising' | 'flat' | 'falling';
   sma50vs200: 'above' | 'below' | 'cross';
   above30WeekMa: boolean;
+  adx14?: number;
+  volumeUpDownRatio?: number;
+  deliveryPctOnUpDays?: number;
   liquidityAvgCr: number;
   liquidityStatus: 'sufficient' | 'limited' | 'insufficient';
 }
@@ -110,6 +120,14 @@ export interface QtvtRrPlan {
   required_min: number;
 }
 
+export interface QtvtTranchePlan {
+  trancheNumber: number;
+  allocationPct: number;
+  condition: string;
+  shares: number;
+  capital: number;
+}
+
 export interface QtvtSizingPlan {
   risk_budget_pct: number;
   max_risk_amount: number;
@@ -118,6 +136,16 @@ export interface QtvtSizingPlan {
   portfolio_pct: number;
   caps_applied: string[];
   notes: string;
+  tranches?: QtvtTranchePlan[];
+}
+
+export interface QtvtTradePlan {
+  horizon: QtvtHorizon;
+  setup: QtvtSetupPlan;
+  stop: QtvtStopPlan;
+  targets: QtvtTargetPlan[];
+  rr: QtvtRrPlan;
+  sizing: QtvtSizingPlan;
 }
 
 export interface QtvtEventItem {
@@ -128,6 +156,78 @@ export interface QtvtEventItem {
   estimated?: boolean;
   days_to_event?: number;
   impact: string;
+}
+
+export interface QtvtBankMetrics {
+  nii?: number | null;
+  ppop?: number | null;
+  patStandalone?: number | null;
+  patConsolidated?: number | null;
+  nim?: number | null;
+  gnpa?: number | null;
+  nnpa?: number | null;
+  pcr?: number | null;
+  slippageRatio?: number | null;
+  creditCostBps?: number | null;
+  casaTotalPct?: number | null;
+  casaRetailPct?: number | null;
+  advancesGrowthYoY?: number | null;
+  depositGrowthYoY?: number | null;
+  creditDepositRatio?: number | null;
+  crarPct?: number | null;
+  cet1Pct?: number | null;
+  lcrPct?: number | null;
+  roa?: number | null;
+  roe?: number | null;
+  bvps?: number | null;
+  adjustedBvps?: number | null;
+  costToIncomePct?: number | null;
+  treasuryGainsSharePct?: number | null;
+  qualityOfProfitNote?: string;
+}
+
+export interface QtvtInvariants {
+  marketCapMatch: boolean;
+  peMatch: boolean;
+  pbMatch: boolean;
+  range52Match: boolean;
+  levelsWithinBounds: boolean;
+  externalTargetRatioOk: boolean;
+  details: string[];
+}
+
+export interface QtvtComparability {
+  hasCorporateEvent: boolean;
+  eventType?: 'Merger' | 'Demerger' | 'Bonus' | 'Stock Split' | 'None';
+  eventDetails?: string;
+  isComparable: boolean;
+  organicGrowthNote?: string;
+}
+
+export interface QtvtPeerComparisonRow {
+  symbol: string;
+  name: string;
+  roa?: number | null;
+  roe?: number | null;
+  nim?: number | null;
+  gnpa?: number | null;
+  casa?: number | null;
+  pb?: number | null;
+  pe?: number | null;
+}
+
+export interface QtvtFlows {
+  promoterHoldingPct: number;
+  promoterTrend: string;
+  pledgePct: number;
+  pledgeTrend: string;
+  fiiHoldingPct: number;
+  fiiTrend: string;
+  diiHoldingPct: number;
+  diiTrend: string;
+  publicHoldingPct: number;
+  publicTrend: string;
+  institutionalScore: number;
 }
 
 export interface QtvtResult {
@@ -151,9 +251,21 @@ export interface QtvtResult {
   targets: QtvtTargetPlan[];
   rr: QtvtRrPlan;
   sizing: QtvtSizingPlan;
+  swingPlan: QtvtTradePlan;
+  positionPlan: QtvtTradePlan;
+  bankMetrics?: QtvtBankMetrics;
+  invariants: QtvtInvariants;
+  comparability: QtvtComparability;
+  peerComparison?: QtvtPeerComparisonRow[];
+  flows: QtvtFlows;
   gates: QtvtGate[];
   what_would_change_the_call: string[];
   events: QtvtEventItem[];
+  dataQualityLog: {
+    conflicts: string[];
+    unverifiedItems: string[];
+    adjustments: string[];
+  };
   meta: {
     strategy_id: 'QTVT-2.0.0';
     policy_id: string;

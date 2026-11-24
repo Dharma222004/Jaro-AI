@@ -7,9 +7,13 @@ import { TechnicalChart } from './TechnicalChart';
 import { JaroMark } from '@/components/brand/JaroLogo';
 
 export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionResult }) {
+  const [horizonTab, setHorizonTab] = useState<'SWING' | 'POSITION'>('SWING');
   const range = result.week52.high - result.week52.low;
   const position = range > 0 ? Math.max(0, Math.min(100, (result.currentPrice - result.week52.low) / range * 100)) : 50;
   const strategy = result.systematic?.selected;
+
+  const q = result.qtvt;
+  const currentPlan = q ? (horizonTab === 'POSITION' ? q.positionPlan : q.swingPlan) : null;
 
   return (
     <div className="decision-artifact">
@@ -136,6 +140,24 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
           <h3>Entry, Targets and Risk Levels</h3>
           <span>Conditional analytical scenarios based on verified chart structure</span>
         </div>
+        {q && (
+          <div className="horizon-toggle-row">
+            <button
+              type="button"
+              className={`horizon-btn ${horizonTab === 'SWING' ? 'active' : ''}`}
+              onClick={() => setHorizonTab('SWING')}
+            >
+              SWING (3–40d)
+            </button>
+            <button
+              type="button"
+              className={`horizon-btn ${horizonTab === 'POSITION' ? 'active' : ''}`}
+              onClick={() => setHorizonTab('POSITION')}
+            >
+              POSITION (6–36m)
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="decision-levels-grid">
@@ -143,17 +165,17 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
         <div className="decision-level-card entry">
           <div className="level-card-header">
             <div className="level-card-icon entry"><Crosshair size={18} /></div>
-            <span className="level-card-badge">{result.qtvt ? `${result.qtvt.setup.type} (${result.qtvt.setup.state})` : (strategy?.entry?.zoneLabel ?? 'Entry Setup')}</span>
+            <span className="level-card-badge">{currentPlan ? `${currentPlan.setup.type} (${currentPlan.setup.state})` : (strategy?.entry?.zoneLabel ?? 'Entry Setup')}</span>
           </div>
           <span className="level-card-title">Preferred Entry Range</span>
           <strong className="level-card-price">
-            {result.qtvt
-              ? `${money(result.qtvt.setup.entry_zone_low)} – ${money(result.qtvt.setup.entry_zone_high)}`
+            {currentPlan
+              ? `${money(currentPlan.setup.entry_zone_low)} – ${money(currentPlan.setup.entry_zone_high)}`
               : result.preferredEntry ? `${money(result.preferredEntry.rangeLow)} – ${money(result.preferredEntry.rangeHigh)}` : 'Wait for confirmation'}
           </strong>
           <p className="level-card-sub">
-            {result.qtvt
-              ? `Alert: ${money(result.qtvt.setup.alert_price)} · Chase Limit: ${money(result.qtvt.setup.chase_limit)} · Trigger: ${money(result.qtvt.setup.trigger)}`
+            {currentPlan
+              ? `Alert: ${money(currentPlan.setup.alert_price)} · Chase Limit: ${money(currentPlan.setup.chase_limit)} · Trigger: ${money(currentPlan.setup.trigger)}`
               : strategy?.entry
                 ? `Trigger: ${money(strategy.entry.triggerPrice)} · Max: ${money(strategy.entry.maximumEntryPrice)}`
                 : result.preferredEntry
@@ -163,7 +185,7 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
         </div>
 
         {/* Targets */}
-        {(result.qtvt?.targets?.length ? result.qtvt.targets : result.targets).map((target, idx) => {
+        {(currentPlan?.targets?.length ? currentPlan.targets : (result.qtvt?.targets?.length ? result.qtvt.targets : result.targets)).map((target, idx) => {
           const isQtvtTarget = 'r_net' in target;
           const targetPrice = target.price;
           const targetUpside = isQtvtTarget ? target.upside_pct : (target as any).upsidePct;
@@ -194,11 +216,11 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
           </div>
           <span className="level-card-title">Risk Level</span>
           <strong className="level-card-price red">
-            {result.qtvt ? money(result.qtvt.stop.price) : result.stopLoss ? money(result.stopLoss.price) : 'N/A'}
+            {currentPlan ? money(currentPlan.stop.price) : result.stopLoss ? money(result.stopLoss.price) : 'N/A'}
           </strong>
           <p className="level-card-sub">
-            {result.qtvt
-              ? `${result.qtvt.stop.distance_atr} ATR · −${result.qtvt.stop.distance_pct.toFixed(1)}% risk (${result.qtvt.stop.basis})`
+            {currentPlan
+              ? `${currentPlan.stop.distance_atr} ATR · −${currentPlan.stop.distance_pct.toFixed(1)}% risk (${currentPlan.stop.basis})`
               : result.stopLoss
                 ? `${money(result.stopLoss.riskPerShare)}/share · −${result.stopLoss.downsidePct.toFixed(1)}% risk`
                 : 'Insufficient price structure'}
@@ -207,7 +229,7 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
       </div>
 
       {/* Empty Setup Notice */}
-      {!result.preferredEntry && (
+      {!result.preferredEntry && !currentPlan && (
         <div className="decision-empty-setup">
           <Crosshair size={20} />
           <div>
@@ -218,16 +240,18 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
       )}
 
       {/* Position Sizing */}
-      {(result.qtvt?.sizing || result.positionSizing) && (
+      {(currentPlan?.sizing || result.qtvt?.sizing || result.positionSizing) && (
         <div className="position-sizing-strip">
           <div className="sizing-icon"><Gauge size={20} /></div>
           <div className="sizing-content">
             <div className="sizing-top">
-              <span>{result.qtvt ? `Risk-Budgeted Position Sizing (${result.qtvt.sizing.risk_budget_pct}% budget)` : result.positionSizing?.blocked ? 'Sizing Blocked by Policy' : 'Systematic Position Sizing'}</span>
-              <strong>{result.qtvt ? `${result.qtvt.sizing.shares} Shares` : `${result.positionSizing?.quantity ?? 0} Shares`}</strong>
+              <span>{currentPlan ? `${horizonTab} Position Sizing (${currentPlan.sizing.risk_budget_pct}% budget)` : result.qtvt ? `Risk-Budgeted Position Sizing (${result.qtvt.sizing.risk_budget_pct}% budget)` : result.positionSizing?.blocked ? 'Sizing Blocked by Policy' : 'Systematic Position Sizing'}</span>
+              <strong>{currentPlan ? `${currentPlan.sizing.shares} Shares` : result.qtvt ? `${result.qtvt.sizing.shares} Shares` : `${result.positionSizing?.quantity ?? 0} Shares`}</strong>
             </div>
             <small>
-              {result.qtvt
+              {currentPlan
+                ? `Position Value: ${money(currentPlan.sizing.position_value)} (${currentPlan.sizing.portfolio_pct}% portfolio) · Net R/R: ${currentPlan.rr.at_cmp}:1 at CMP (${currentPlan.rr.blended_net}:1 blended) · ${currentPlan.sizing.notes}`
+                : result.qtvt
                 ? `Position Value: ${money(result.qtvt.sizing.position_value)} (${result.qtvt.sizing.portfolio_pct}% portfolio) · Planned Risk: ${money(result.qtvt.sizing.max_risk_amount)} · ${result.qtvt.sizing.notes}`
                 : result.positionSizing?.blocked
                   ? result.positionSizing.blockedReasons.join(' ')
@@ -237,10 +261,18 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
         </div>
       )}
 
+      {/* What Would Make This Actionable Banner (Section 15) */}
+      {q && q.what_would_change_the_call.length > 0 && (
+        <div className="actionable-change-banner">
+          <strong>What would make this actionable:</strong>
+          <span>{q.what_would_change_the_call[0]}</span>
+        </div>
+      )}
+
       {/* Regulatory Disclosure */}
       <div className="decision-disclosure">
         <AlertTriangle size={15} />
-        <span>Conditional research scenario—not an instruction or recommendation to transact. Targets are mathematical estimates and stop levels cannot prevent gap losses.</span>
+        <span>Decision-support research scenario—not personalized investment advice or an instruction to transact. Confirm regulatory compliance requirements before making financial decisions.</span>
       </div>
 
       {/* QTVT Confluence Gates Accordion (L0 to L8) */}
@@ -257,6 +289,8 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
               <span className="qtvt-profile-pill">Sector: {result.qtvt.sector_profile}</span>
             </div>
             <p className="qtvt-verdict-desc"><strong>Verdict Call:</strong> {result.qtvt.verdict_reason}</p>
+            
+            {/* Grouped Gates by Level */}
             <div className="gates-list">
               {result.qtvt.gates.map((gate) => (
                 <div key={gate.id} className="gate-row">
@@ -278,7 +312,7 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
               </div>
             )}
             <p className="audit-hash">
-              Strategy: <span className="font-mono">{result.qtvt.meta.strategy_id}</span> · Policy: <span className="font-mono">{result.qtvt.meta.policy_id}</span> · Release: <span className="font-mono">{result.qtvt.meta.release_status}</span>
+              Strategy: <span className="font-mono">{result.qtvt.meta.strategy_id}</span> · Policy: <span className="font-mono">{result.qtvt.meta.policy_id}</span> · Release: <span className="font-mono">{result.qtvt.meta.release_status}</span> · Feed: <span className="font-mono">{result.qtvt.meta.data_versions.feed}</span>
             </p>
           </div>
         </details>

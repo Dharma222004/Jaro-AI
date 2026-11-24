@@ -17,22 +17,34 @@ function cleanMarkdownArtifacts(raw: string): string {
     // Fix blockquotes with stray asterisks/hashes: "> *# Text" -> "> Text"
     .replace(/^>\s*[*#]+\s*/gm, '> ')
     // Normalize header + asterisks combinations at line starts:
-    // "#*", "##*", "###*", "*#", "*##", "*###", "**#", "##**"
+    // "#*", "##*", "###*", "*#", "*##", "*###", "**#", "##**", "* #"
     .replace(/^(\s*)[#*]+([#]{1,6})\s*(.+)$/gm, '$1$2 $3')
     .replace(/^(\s*#{1,6})\s*[*_]+\s*(.+?)\s*[*_]*$/gm, '$1 $2')
     .replace(/^(\s*[*_]+)\s*(#{1,6})\s*(.+?)\s*[*_]*$/gm, '$2 $3')
     .replace(/^(#{1,6})[*_]+\s*(.+)$/gm, '$1 $2')
     .replace(/^(#{1,6})\s*[*_]+([^*_])/gm, '$1 $2')
+    .replace(/^(\s*)\*\s*(#{1,6})\s*/gm, '$1$2 ')
     // Fix unspaced headers: "###Heading" -> "### Heading"
     .replace(/^(#{1,6})([A-Za-z0-9])/gm, '$1 $2')
     // Remove `#*` or `*#` stuck at beginning of list items
     .replace(/^(\s*[-*]\s*)[#*]+\s*/gm, '$1')
     .replace(/^(\s*\d+\.\s*)[#*]+\s*/gm, '$1')
+    // Break metric summaries after periods onto new line (including any surrounding asterisks)
+    .replace(/([.!?])\s+(\*?\*?(?:Market Cap|ISIN|Exchange|CMP|P\/E|ROE|ROCE|52-Week|Revenue|Net Profit|EBITDA|Debt|EPS):(?:\*{1,2})?)/gi, '$1\n\n$2')
+    // Fix ISIN | Exchange compound bold
+    .replace(/\*?ISIN:\s*([A-Za-z0-9]+)\s*\|\s*Exchange:\*?\*?/gi, '**ISIN:** $1 · **Exchange:**')
+    // Fix unbalanced asterisks on labels:
+    // "*Label:**" -> "**Label:**"
+    .replace(/(^|[\s(])\*([^*\n]+?)\*\*/g, '$1**$2**')
+    // "**Label:*" -> "**Label:**"
+    .replace(/(^|[\s(])\*\*([^*\n]+?)\*(?!\*)/g, '$1**$2**')
+    // Isolated "*Label:" -> "**Label:**"
+    .replace(/(^|[\s(])\*([A-Za-z0-9\s/&-]+:)(?!\*)/g, '$1**$2**')
     // Strip stray "*#" or "#*" sequences globally wherever they appear
-    .replace(/\*+#+/g, '')
-    .replace(/#+\*+/g, '')
+    .replace(/\*+\s*#+/g, '')
+    .replace(/#+\s*\*+/g, '')
     // Clean up empty bold marks like "****" or "** **"
-    .replace(/\*{4,}/g, '**')
+    .replace(/\*{3,}/g, '**')
     .replace(/\*\*\s*\*\*/g, '');
 }
 
@@ -348,6 +360,12 @@ function inline(text: string, citationScope?: string, onCitationClick?: (sourceN
     if (/^\[[a-zA-Z][a-zA-Z0-9_-]*\]$/.test(part)) {
       return <span className="source-citation" key={index}>{part.slice(1, -1)}</span>;
     }
-    return <React.Fragment key={index}>{part}</React.Fragment>;
+    // Clean any stray asterisks or hashes from fallback plain text parts
+    const cleaned = part
+      .replace(/(?<!\S)\*+(?!\S)/g, '')
+      .replace(/(?<!\S)#+(?!\S)/g, '')
+      .replace(/^\*+([A-Za-z0-9])/, '$1')
+      .replace(/([A-Za-z0-9:])\*+$/, '$1');
+    return <React.Fragment key={index}>{cleaned}</React.Fragment>;
   });
 }

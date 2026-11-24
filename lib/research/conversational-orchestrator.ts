@@ -843,17 +843,18 @@ NON-NEGOTIABLE RULES:
 9. If sources conflict, identify the conflict instead of silently choosing a figure.
 10. Do not create a separate source list in the answer; Jaro AI renders the numbered Sources & References panel from the supplied index.
 11. STRICT DATA SOURCE RULE — NEVER mention "Yahoo Finance", "Upstox", "Angel One", "mStock", "Groq", "NVIDIA", "Screener.in", or any internal/third-party data provider name in your answer text. Never add source attribution footnotes like "*Source: Yahoo Finance*" or "*Source: ...*". Refer to data only as "exchange data", "regulatory filings", "official disclosures", or "verified research sources". This rule is ABSOLUTE — no exceptions.
-12. Always directly and thoroughly answer the specific company or security the user asks about in their latest message. If the user asks whether it is the right time to buy or enter, provide an objective, data-grounded institutional evaluation covering valuation multiples, growth, balance sheet resilience, key risks, and current market levels.`;
+12. Always directly and thoroughly answer the specific company or security the user asks about in their latest message. If the user asks whether it is the right time to buy or enter, provide an objective, data-grounded institutional evaluation covering valuation multiples, growth, balance sheet resilience, key risks, and current market levels.
+13. FORMATTING & MARKDOWN SYNTAX: Always use clean, standard Markdown. Place a space after heading hashes ('## Overview', NEVER '*Company Overview' or '#*Overview'). Always format bold key-value labels with double asterisks on both sides (e.g. '**Market Cap:** ₹... · **ISIN:** ... · **Exchange:** ...', NEVER '*Market Cap:**' or '*ISIN: ... | Exchange:**'). Break key metrics onto their own line or paragraph rather than appending them directly to company overview descriptions.`;
 
   const systemPrompt = isConversationalIntent ? conversationalSystemPrompt : researchSystemPrompt;
   const periodGuardrail = !isConversationalIntent
-    ? `\n13. Preserve reporting periods exactly as supplied. Never infer a fiscal quarter or financial year from a month unless the evidence explicitly states that fiscal label.`
+    ? `\n14. Preserve reporting periods exactly as supplied. Never infer a fiscal quarter or financial year from a month unless the evidence explicitly states that fiscal label.`
     : '';
   const memoryRules = params.memoryContext ? `
-${isConversationalIntent ? '9' : '14'}. Use MEMORY CONTEXT only when directly relevant. It may contain prior user requests, preferences, or dated facts.
-${isConversationalIntent ? '10' : '15'}. A prior research question does not prove ownership, a transaction, or a user decision.
-${isConversationalIntent ? '11' : '16'}. Never reuse a stored market price as current data. Preserve source, reporting period, retrieval timestamp, confidence and verification limitations.
-${isConversationalIntent ? '12' : '17'}. Explicit new user instructions override procedural or profile memory.` : '';
+${isConversationalIntent ? '9' : '15'}. Use MEMORY CONTEXT only when directly relevant. It may contain prior user requests, preferences, or dated facts.
+${isConversationalIntent ? '10' : '16'}. A prior research question does not prove ownership, a transaction, or a user decision.
+${isConversationalIntent ? '11' : '17'}. Never reuse a stored market price as current data. Preserve source, reporting period, retrieval timestamp, confidence and verification limitations.
+${isConversationalIntent ? '12' : '18'}. Explicit new user instructions override procedural or profile memory.` : '';
   const specialistRules = !isConversationalIntent && params.intent === 'sector_ranking'
     ? `\nSECTOR RANKING RULES: Compare sectors using a transparent 100-point analytical score: growth outlook 20, demand 15, economics/profitability 15, competition 10, policy support 10, leading-company health 10, valuation 10, risk 10. Scores are qualitative evidence summaries, not probabilities. Show each component, missing evidence and source citations. Do not call a popular sector investable if valuation or risk evidence is adverse.`
     : !isConversationalIntent && params.intent === 'mutual_fund_research'

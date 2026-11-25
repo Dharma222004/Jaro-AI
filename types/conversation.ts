@@ -71,6 +71,7 @@ export interface ConversationContext {
   activeAssumptions?: string[];
   pendingClarifications?: string[];
   retrievedMemories?: RetrievedMemory[];
+  conversationSummary?: string;
 }
 
 export interface ConversationHistoryMessage {

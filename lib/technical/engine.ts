@@ -64,6 +64,7 @@ export async function runTechnicalAnalysis(params: {
   }).catch(() => ({ candles: [] as MarketCandle[], validation: defaultValidation, cacheHit: false, staleCache: false, expiresAt: '' }));
 
   const targetExchange: 'NSE' | 'BSE' = instrument.exchange === 'BSE' ? 'BSE' : 'NSE';
+  let isDelayedFeed = false;
 
   if (!candleResult.candles.length) {
     const multi = await brokerAggregator.getUnifiedHistoricalCandles({
@@ -105,6 +106,7 @@ export async function runTechnicalAnalysis(params: {
     ).catch(() => []);
 
     if (yfCandles.length) {
+      isDelayedFeed = true;
       candleResult = {
         candles: yfCandles,
         validation: {
@@ -123,45 +125,15 @@ export async function runTechnicalAnalysis(params: {
   const quoteResult = await getFullMarketQuotes([instrument.instrument_key]).catch(() => null);
   const brokerQuote = !quoteResult ? await brokerAggregator.getUnifiedQuote(instrument.trading_symbol, targetExchange).catch(() => null) : null;
 
+  // Never synthesize fake OHLCV prices when no verified candles exist across exchange/delayed feeds.
   if (!candleResult.candles.length) {
-    const rawQuote = quoteResult ? Object.values(quoteResult.quotes)[0] : undefined;
-    const fallbackPrice = rawQuote?.last_price ?? brokerQuote?.lastPrice ?? 1000;
-    const now = Date.now();
-    const synthCandles: MarketCandle[] = [];
-    const candleCount = timeframe === '1w' ? 52 : 90;
-    const intervalMs = timeframe === '1w' ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-
-    for (let i = candleCount; i >= 0; i--) {
-      const dayTime = new Date(now - i * intervalMs);
-      if (timeframe === '1d' && (dayTime.getDay() === 0 || dayTime.getDay() === 6)) continue;
-      const drift = Math.sin(i * 0.25) * 0.04 + (candleCount - i) * 0.001;
-      const close = Math.max(1, Math.round(fallbackPrice * (1 + drift) * 100) / 100);
-      const high = Math.round(close * 1.015 * 100) / 100;
-      const low = Math.round(close * 0.985 * 100) / 100;
-      const open = Math.round((high + low) / 2 * 100) / 100;
-      synthCandles.push({
-        timestamp: dayTime.toISOString(),
-        open,
-        high,
-        low,
-        close,
-        volume: 250000 + Math.floor(Math.random() * 100000),
-        openInterest: 0,
-      });
-    }
-
-    candleResult = {
-      candles: synthCandles,
-      validation: {
-        ...defaultValidation,
-        received: synthCandles.length,
-        accepted: synthCandles.length,
-        newestTimestamp: synthCandles.at(-1)?.timestamp ?? null,
-      },
-      cacheHit: false,
-      staleCache: true,
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-    };
+    throw new UpstoxApiError(
+      'No verified historical OHLCV candles were returned across exchange feeds; technical levels cannot be generated without fabricating price series.',
+      422,
+      'NO_VALIDATED_CANDLES',
+      false,
+      'no_data',
+    );
   }
   const calculated = calculateIndicators(candleResult.candles, timeframe);
   const interpreted = interpretTechnicals({
@@ -174,6 +146,7 @@ export async function runTechnicalAnalysis(params: {
     expiresAt: candleResult.expiresAt,
     validation: candleResult.validation,
     staleCache: candleResult.staleCache,
+    isDelayedFeed,
   });
   const upstoxQuote = quoteResult ? Object.values(quoteResult.quotes)[0] : undefined;
   const result: TechnicalAnalysisResult = {

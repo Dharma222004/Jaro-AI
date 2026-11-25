@@ -1,4 +1,5 @@
 import { analyzeWithGroq } from '@/lib/groq/client';
+import { selectModel } from '@/lib/ai/model-router';
 import type {
   ConversationContext,
   QueryClassification,
@@ -95,7 +96,7 @@ export async function classifyResearchQuery(
   // Fast-path: Obvious conversational personal finance, budgeting, mutual funds or education with no company mentioned
   const qLower = query.toLowerCase();
   const fastConversational = (
-    /\b(where\s*(?:should|to|can)\s*i\s*invest|how\s*(?:should|to|can|do)\s*i\s*invest|want\s*to\s*invest|have\s+.*(?:rupees?|rs|inr|\d+).*invest|invest\s+(?:my\s+)?money|investing\s+advice|investment\s+advice|how\s*to\s*start\s*investing|invest\s+(?:for\s+)?beginners?|start\s*investing|what\s+is\s+(?:roe|roce|pe|pb|sip|nav|cagr|nifty|sensex|compounding|mutual\s*fund|index\s*fund)|difference\s+between|how\s+does\s+compounding|budgeting\s+rule)\b/i.test(qLower)
+    /\b(where\s*(?:should|to|can)\s*i\s*invest|how\s*(?:should|to|can|do)\s*i\s*invest|want\s*to\s*invest|have\s+.*(?:rupees?|rs|inr|\d+).*invest|invest\s+(?:my\s+)?money|investing\s+advice|investment\s+advice|how\s*to\s*start\s*investing|invest\s+(?:for\s+)?beginners?|start\s*investing|(?:what\s+(?:is|are)|explain|meaning\s+of|definition\s+of|how\s+does)\s+(?:roe|roce|pe|p\/e|pb|p\/b|rsi|macd|atr|sma|ema|moving\s+average|support\s+and\s+resistance|sip|nav|cagr|eps|ebitda|nifty|sensex|compounding|mutual\s*fund|index\s*fund)|difference\s+between|how\s+does\s+compounding|budgeting\s+rule)\b/i.test(qLower)
   );
   const fastCompanies = extractFallbackCompanies(query, context);
   if (fastConversational && fastCompanies.length === 0 && (!context?.activeCompanies?.length || !/\b(it|its|they|their|that company|this stock)\b/i.test(qLower))) {
@@ -110,10 +111,13 @@ export async function classifyResearchQuery(
   };
 
   try {
+    const fastRoute = selectModel({ complexity: 'simple', requiresJson: true });
     const result = await analyzeWithGroq({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt: `Conversation context:\n${JSON.stringify(contextSummary)}\n\nUser question:\n${query}`,
-      timeoutMs: 4_000,
+      model: fastRoute.model,
+      maxTokens: 1024,
+      timeoutMs: Math.min(fastRoute.timeoutMs, 6_000),
     });
     const intent = INTENTS.includes(result.intent as ResearchIntent)
       ? (result.intent as ResearchIntent)
@@ -154,6 +158,8 @@ export function isProjectContextQuery(query: string) {
 
 function fallbackIntent(query: string, context?: ConversationContext): ResearchIntent {
   const q = query.toLowerCase();
+  const extracted = extractFallbackCompanies(query, context);
+  const hasPronounRef = Boolean(context?.activeCompanies?.length && /\b(it|its|they|their|that company|this stock|what about|how about)\b/.test(q));
   if (isInvestmentDecisionQuery(query, context)) return 'investment_decision';
   if (/\b(mutual fund|index fund|flexi.?cap fund|sip|lump.?sum|expense ratio|amfi|fund manager)\b/.test(q)) return 'mutual_fund_research';
   if (/\b(my portfolio|my holdings|portfolio allocation|sector concentration|fund overlap|unrealised|unrealized)\b/.test(q)) return 'portfolio_analysis';
@@ -162,6 +168,15 @@ function fallbackIntent(query: string, context?: ConversationContext): ResearchI
   if (/\b(which sectors?|sector ranking|compare .* sectors?|next five years)\b/.test(q)) return 'sector_ranking';
   if (/\b(compare|versus|vs\.?|which (?:one |company )?is better)\b/.test(q)) return 'stock_comparison';
   if (/\b(screen|find|identify|companies with|stocks with|high roce|high roe|low debt|cash flow|52.?week low|institutional holding)\b/.test(q)) return 'stock_screening';
+  // General concept explanation with no target company (e.g. "Explain RSI", "What is P/E?")
+  if (
+    extracted.length === 0 &&
+    !hasPronounRef &&
+    /^\s*(?:what\s+(?:is|are)|explain|define|meaning\s+of|definition\s+of|difference\s+between|how\s+does|how\s+do|why\s+is|can\s+you\s+explain)\b/.test(q) &&
+    !/\b(today|market\s+today|falling|rising|nifty\s+level|sensex\s+level)\b/.test(q)
+  ) {
+    return 'financial_education';
+  }
   if (/\b(quarter|quarterly|annual result|earnings|concall|investor presentation)\b/.test(q)) return 'results_analysis';
   if (/\b(rsi|macd|moving average|technical|support|resistance|momentum|backtest)\b/.test(q)) return 'technical_analysis';
   if (/\b(promoter|management|governance|pledge|related.party)\b/.test(q)) return 'management_promoter_analysis';
@@ -172,10 +187,9 @@ function fallbackIntent(query: string, context?: ConversationContext): ResearchI
   if (/\b(revenue|profit|debt|balance sheet|cash flow|financial statement)\b/.test(q)) return 'financial_statement_analysis';
   if (/\b(pe|p\/e|pb|p\/b|roe|roce|valuation|fundamental)\b/.test(q)) return 'fundamental_analysis';
   if (/\b(what is|difference between|explain roe|how to|what should i analyse|learn|how do i|how does|why is|why are|meaning of|definition of|can you explain|tell me about|guide|basics|beginner|personal finance|budget|save money|emergency fund|tax saving|taxation)\b/.test(q)) return 'financial_education';
-  if (context?.activeCompanies?.length && /\b(it|its|they|their|that company|what about|how about)\b/.test(q)) return 'follow_up';
+  if (hasPronounRef) return 'follow_up';
 
   // If a company is explicitly named in the query, classify as company_research
-  const extracted = extractFallbackCompanies(query);
   if (extracted.length > 0) return 'company_research';
 
   // If user has active companies in context and asks a short query
@@ -298,8 +312,25 @@ export function extractFallbackCompanies(query: string, context?: ConversationCo
   const dynamicMatch = query.match(/\b(?:stock\s+(?:that|of|named)?\s*[,:]?\s*|invest\s+in(?:\s+the\s+stock)?\s*[,:]?\s*|shares?\s+of\s+|about\s+(?:the\s+)?|explain\s+(?:about\s+)?(?:the\s+)?|(?:target|stop\s*loss|analysis|research|report|outlook)\s+for\s+(?:the\s+)?|not\s+[a-z0-9&]+,\s*)([A-Za-z0-9&]{2,20}(?:\s+[A-Za-z0-9&]{2,20})?)\b/i);
   if (dynamicMatch && dynamicMatch[1]) {
     const candidate = dynamicMatch[1].toUpperCase().trim();
-    const commonStopWords = new Set(['THE', 'THIS', 'THAT', 'SOME', 'ANY', 'GOOD', 'BEST', 'TIME', 'WHAT', 'HOW', 'WHEN', 'STOCK', 'SHARE', 'INVEST', 'INDIA']);
-    if (!commonStopWords.has(candidate) && !positiveTickers.includes(candidate)) {
+    const firstToken = candidate.split(/\s+/)[0] ?? '';
+    const commonStopWords = new Set([
+      'THE', 'THIS', 'THAT', 'SOME', 'ANY', 'GOOD', 'BEST', 'TIME', 'WHAT', 'HOW', 'WHEN',
+      'STOCK', 'SHARE', 'INVEST', 'INDIA', 'MARKET', 'EQUITY', 'DEBT', 'PORTFOLIO', 'RISK',
+      'RSI', 'MACD', 'ATR', 'SMA', 'EMA', 'VWAP', 'ROE', 'ROCE', 'ROA', 'ROI', 'PE', 'PB',
+      'EPS', 'EBITDA', 'EBIT', 'PAT', 'FCF', 'OCF', 'SIP', 'NAV', 'CAGR', 'XIRR', 'IRR',
+      'NPV', 'DCF', 'WACC', 'NIFTY', 'SENSEX', 'BANKNIFTY', 'COMPOUNDING', 'VALUATION',
+      'INFLATION', 'DIVIDEND', 'SUPPORT', 'RESISTANCE', 'BREAKOUT', 'PULLBACK',
+      'MOVING AVERAGE', 'MUTUAL FUND', 'INDEX FUND', 'TECHNICAL ANALYSIS', 'FUNDAMENTAL ANALYSIS',
+    ]);
+    const conceptFirstWords = new Set([
+      'RSI', 'MACD', 'ATR', 'SMA', 'EMA', 'VWAP', 'ROE', 'ROCE', 'ROA', 'ROI', 'PE', 'PB',
+      'EPS', 'EBITDA', 'EBIT', 'PAT', 'FCF', 'OCF', 'SIP', 'NAV', 'CAGR', 'XIRR', 'IRR',
+      'NPV', 'DCF', 'WACC', 'COMPOUNDING', 'VALUATION', 'INFLATION', 'DIVIDEND', 'SUPPORT',
+      'RESISTANCE', 'BREAKOUT', 'PULLBACK', 'MOVING', 'MUTUAL', 'INDEX', 'PORTFOLIO', 'RISK',
+      'BUDGET', 'TAXATION', 'FINANCIAL', 'TECHNICAL', 'FUNDAMENTAL', 'INVESTING', 'INVESTMENT',
+      'TRADING', 'SWING', 'INTRADAY',
+    ]);
+    if (!commonStopWords.has(candidate) && !conceptFirstWords.has(firstToken) && !positiveTickers.includes(candidate)) {
       positiveTickers.push(candidate);
     }
   }

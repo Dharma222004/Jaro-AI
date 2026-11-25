@@ -372,17 +372,24 @@ export async function runResearchPipeline(params: {
           finalReport.financials.operatingCashFlow = m(Math.round(liveData.operatingCashflow / 1e7), '₹ Cr', 'TTM');
         }
 
-        // Ownership enrichment from official live exchange feed
+        // Ownership enrichment from official exchange/fundamental snapshot
+        // Note: NEVER invent an artificial FII vs DII split from aggregate institutional holdings.
         if (liveData.heldPercentInsiders != null && (finalReport.shareholding?.promoter?.value == null || finalReport.shareholding.promoter.value === 0)) {
           const promPct = Math.round(liveData.heldPercentInsiders * 10000) / 100;
           finalReport.shareholding.promoter = m(promPct, '%', 'Latest Shareholding Pattern');
         }
         if (liveData.heldPercentInstitutions != null && (finalReport.shareholding?.fii?.value == null && finalReport.shareholding?.dii?.value == null)) {
           const instPct = Math.round(liveData.heldPercentInstitutions * 10000) / 100;
-          const fiiEst = Math.round(instPct * 0.55 * 100) / 100;
-          const diiEst = Math.round((instPct - fiiEst) * 100) / 100;
-          finalReport.shareholding.fii = m(fiiEst, '%', 'Latest Shareholding Pattern');
-          finalReport.shareholding.dii = m(diiEst, '%', 'Latest Shareholding Pattern');
+          finalReport.shareholding.fii = {
+            ...m(null, '%', 'Latest Shareholding Pattern'),
+            verificationStatus: 'unavailable',
+            note: `Total institutional holding is ${instPct}%; separate FII vs DII breakdown was not disclosed in this feed.`,
+          };
+          finalReport.shareholding.dii = {
+            ...m(null, '%', 'Latest Shareholding Pattern'),
+            verificationStatus: 'unavailable',
+            note: `Total institutional holding is ${instPct}%; separate FII vs DII breakdown was not disclosed in this feed.`,
+          };
         }
         const promVal = typeof finalReport.shareholding?.promoter?.value === 'number' ? finalReport.shareholding.promoter.value : null;
         const fiiVal = typeof finalReport.shareholding?.fii?.value === 'number' ? finalReport.shareholding.fii.value : null;

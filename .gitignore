@@ -30,7 +30,7 @@ JARO AI*.png
 JARO AI*.mp4
 
 # Prisma
-prisma/migrations/
+# Prisma migrations are version-controlled for non-destructive upgrades
 
 # System
 .DS_Store

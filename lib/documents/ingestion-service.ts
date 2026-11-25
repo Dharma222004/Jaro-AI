@@ -7,6 +7,8 @@ import { chunkDocument } from './chunker';
 import { generateEmbedding } from './embedding';
 import { createDocumentRecord, saveDocumentChunks, updateDocumentStatus } from './store';
 import { memoryOwnerKey } from '@/lib/memory/identity';
+import { ensurePathWithinDirectory, sanitizeStorageFilename } from '@/lib/security/input-guard';
+import { recordSecurityAudit } from '@/lib/security/audit-logger';
 
 const DOCS_BASE_DIR = process.env.DOCS_STORAGE_DIR ?? path.join(process.cwd(), 'data', 'documents');
 
@@ -43,18 +45,19 @@ export async function ingestDocument(identity: string, params: {
   const fileBuffer = readFileSync(params.filePath);
   const contentHash = createHash('sha256').update(fileBuffer).digest('hex');
 
-  // Ensure storage directory exists
-  const ownerDir = path.join(/*turbopackIgnore: true*/ DOCS_BASE_DIR, ownerKey.slice(0, 16));
+  // Ensure storage directory exists and sanitize filename against path traversal
+  const ownerDir = ensurePathWithinDirectory(DOCS_BASE_DIR, path.join(/*turbopackIgnore: true*/ DOCS_BASE_DIR, ownerKey.slice(0, 16)));
   if (!existsSync(/*turbopackIgnore: true*/ ownerDir)) mkdirSync(ownerDir, { recursive: true });
 
-  // Copy file to managed storage
-  const storageKey = path.join(ownerDir, `${Date.now()}_${params.fileName}`);
+  // Copy file to managed storage using strictly sanitized filename inside ownerDir
+  const safeFileName = sanitizeStorageFilename(params.fileName);
+  const storageKey = ensurePathWithinDirectory(ownerDir, path.join(ownerDir, `${Date.now()}_${safeFileName}`));
   writeFileSync(storageKey, fileBuffer);
 
   // Create document record
   const docRecord = await createDocumentRecord(identity, {
-    title: params.title ?? params.fileName,
-    fileName: params.fileName,
+    title: params.title ?? safeFileName,
+    fileName: safeFileName,
     fileType: params.fileType,
     fileSize: params.fileSize ?? fileBuffer.byteLength,
     sourceUrl: params.sourceUrl,
@@ -99,6 +102,15 @@ export async function ingestDocument(identity: string, params: {
   await updateDocumentStatus(identity, docRecord.id, 'indexed', {
     pageCount: parsed.metadata.pageCount ?? parsed.pages.length,
     chunkCount: chunksWithEmbeddings.length,
+  });
+
+  await recordSecurityAudit({
+    ownerKey,
+    eventType: 'memory_change',
+    action: 'document_ingest',
+    resource: docRecord.id,
+    status: errors.length ? 'error' : 'success',
+    metadata: { fileName: safeFileName, chunkCount: chunksWithEmbeddings.length },
   });
 
   return {

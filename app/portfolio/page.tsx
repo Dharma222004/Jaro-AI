@@ -3,6 +3,7 @@
 import { useCallback, useState, useMemo } from 'react';
 import { Plus, Trash2, Activity, BarChart3, PieChart, ShieldAlert } from 'lucide-react';
 import type { PortfolioRiskBudget } from '@/types/portfolio';
+import { ensureSignedSession, memoryAuthorization } from '@/lib/memory/client';
 
 interface PositionRow {
   instrumentKey: string;
@@ -115,10 +116,12 @@ export default function PortfolioPage() {
     setError(null);
 
     try {
+      const token = await ensureSignedSession();
       const response = await fetch('/api/portfolio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...memoryAuthorization(token) },
         body: JSON.stringify({
+          persistHoldings: true,
           positions: positions.map((p) => ({
             instrumentKey: p.instrumentKey,
             ticker: p.ticker,

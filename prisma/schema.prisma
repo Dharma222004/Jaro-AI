@@ -46,17 +46,19 @@ model ResearchReport {
 }
 
 model ResearchSource {
-  id           String   @id @default(cuid())
-  reportId     String
-  url          String
-  title        String
-  domain       String
-  sourceType   String?  // annual_report | exchange_filing | news | analysis | other
-  authority    String?  // high | medium | low
-  relevance    Float?
-  publishedAt  DateTime?
-  retrievedAt  DateTime @default(now())
-  snippet      String?
+  id              String    @id @default(cuid())
+  reportId        String
+  url             String
+  title           String
+  domain          String
+  sourceType      String?   // annual_report | exchange_filing | news | analysis | other
+  authority       String?   // high | medium | low
+  relevance       Float?
+  publishedAt     DateTime?
+  retrievedAt     DateTime  @default(now())
+  reportingPeriod String?
+  dataFreshness   String?
+  snippet         String?
 
   report ResearchReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
@@ -65,12 +67,14 @@ model ResearchSource {
 
 model Watchlist {
   id        String   @id @default(cuid())
+  ownerKey  String   @default("legacy_default")
   companyId String
   addedAt   DateTime @default(now())
 
   company Company @relation(fields: [companyId], references: [id])
 
-  @@unique([companyId])
+  @@unique([ownerKey, companyId])
+  @@index([ownerKey])
   @@map("watchlists")
 }
 
@@ -178,18 +182,20 @@ model StrategyBacktestRun {
 }
 
 model ConversationRecord {
-  id             String    @id @default(cuid())
-  ownerKey       String
-  title          String?
-  summary        String?
-  summaryVersion Int       @default(0)
-  messageCount   Int       @default(0)
-  lastMessageAt  DateTime?
-  entities       String    @default("[]") // JSON array of entity strings
-  status         String    @default("active") // active | archived | deleted
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  messages       ConversationMessage[]
+  id                  String    @id @default(cuid())
+  ownerKey            String
+  title               String?
+  summary             String?
+  summaryVersion      Int       @default(0)
+  summaryMessageCount Int       @default(0)
+  messageCount        Int       @default(0)
+  lastMessageAt       DateTime?
+  entities            String    @default("[]") // JSON array of entity strings
+  openTasksJson       String    @default("[]")
+  status              String    @default("active") // active | archived | deleted
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  messages            ConversationMessage[]
 
   @@index([ownerKey, status, lastMessageAt])
   @@map("conversation_records")
@@ -198,9 +204,12 @@ model ConversationRecord {
 model ConversationMessage {
   id              String   @id @default(cuid())
   conversationId  String
+  requestId       String?
   role            String   // user | assistant | system
   content         String
   contentSummary  String?  // compressed version for long messages
+  intent          String?
+  toolResultsJson String?
   attachmentsJson String   @default("[]")
   memoryRefs      String   @default("[]") // memory IDs used in this message
   stageJson       String?  // thinking stages JSON
@@ -208,6 +217,7 @@ model ConversationMessage {
   conversation    ConversationRecord @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+  @@index([requestId])
   @@map("conversation_messages")
 }
 
@@ -330,4 +340,62 @@ model MemoryRetrievalLog {
 
   @@index([ownerKey, createdAt])
   @@map("memory_retrieval_logs")
+}
+
+model PortfolioHolding {
+  id            String   @id @default(cuid())
+  ownerKey      String
+  instrumentKey String?
+  ticker        String
+  exchange      String   @default("NSE")
+  sector        String?
+  side          String   @default("long")
+  quantity      Float
+  entryPrice    Float
+  stopLoss      Float?
+  target        Float?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([ownerKey, ticker, exchange])
+  @@index([ownerKey])
+  @@map("portfolio_holdings")
+}
+
+model SecurityAuditLog {
+  id           String   @id @default(cuid())
+  ownerKey     String?
+  eventType    String   // auth | access_denied | tool_execution | provider_failure | memory_change | export | rate_limit | security_guard
+  action       String
+  resource     String?
+  status       String   // success | denied | error | blocked
+  requestId    String?
+  ipHash       String?
+  metadataJson String   @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([ownerKey, createdAt])
+  @@index([requestId])
+  @@map("security_audit_logs")
+}
+
+model ToolExecutionLog {
+  id            String   @id @default(cuid())
+  requestId     String?
+  ownerKey      String?
+  toolName      String
+  paramsHash    String
+  status        String   // success | failed | timeout | denied | cached
+  durationMs    Int      @default(0)
+  provider      String?
+  dataFreshness String?
+  errorCode     String?
+  createdAt     DateTime @default(now())
+
+  @@index([requestId])
+  @@index([toolName, createdAt])
+  @@index([ownerKey, createdAt])
+  @@map("tool_execution_logs")
 }

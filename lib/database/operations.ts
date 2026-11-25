@@ -113,10 +113,11 @@ export async function saveResearchSources(
   }
 }
 
-// ---- Watchlist ----
+// ---- Watchlist (User-Isolated via ownerKey) ----
 
-export async function getWatchlist(): Promise<WatchlistItem[]> {
+export async function getWatchlist(ownerKey: string): Promise<WatchlistItem[]> {
   const items = await prisma.watchlist.findMany({
+    where: { ownerKey },
     include: { company: { include: { reports: { where: { status: 'completed' }, orderBy: { createdAt: 'desc' }, take: 1 } } } },
     orderBy: { addedAt: 'desc' },
   });
@@ -132,19 +133,19 @@ export async function getWatchlist(): Promise<WatchlistItem[]> {
   }));
 }
 
-export async function addToWatchlist(companyId: string) {
+export async function addToWatchlist(ownerKey: string, companyId: string) {
   return prisma.watchlist.upsert({
-    where: { companyId },
-    create: { companyId },
+    where: { ownerKey_companyId: { ownerKey, companyId } },
+    create: { ownerKey, companyId },
     update: {},
   });
 }
 
-export async function removeFromWatchlist(id: string) {
-  return prisma.watchlist.delete({ where: { id } });
+export async function removeFromWatchlist(ownerKey: string, id: string) {
+  return prisma.watchlist.deleteMany({ where: { id, ownerKey } });
 }
 
-export async function isInWatchlist(companyId: string): Promise<boolean> {
-  const item = await prisma.watchlist.findUnique({ where: { companyId } });
+export async function isInWatchlist(ownerKey: string, companyId: string): Promise<boolean> {
+  const item = await prisma.watchlist.findUnique({ where: { ownerKey_companyId: { ownerKey, companyId } } });
   return !!item;
 }

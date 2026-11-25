@@ -11,6 +11,8 @@ import { tavily } from '@tavily/core';
 import type { CompanyIdentity } from '@/types/company';
 import type { ResearchSourceMeta } from '@/types/research';
 import { extractDomain } from '@/lib/formatting/numbers';
+import { assessPromptInjection, validateSafeExternalUrl } from '@/lib/security/input-guard';
+import { redactSecrets } from '@/lib/security/redactor';
 
 // ── Single Dedicated Tavily Client ──────────────────────────────────────────
 
@@ -66,7 +68,7 @@ export async function withTavilyFallback<T>(
     }
   }
 
-  throw new Error(`[tavily] Tavily request failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  throw new Error(`[tavily] Tavily request failed: ${redactSecrets(lastError instanceof Error ? lastError.message : String(lastError))}`);
 }
 
 export async function tavilySearchWithFallback(
@@ -282,16 +284,17 @@ export async function performResearch(
     for (const result of batchResults) {
       if (result.status === 'fulfilled' && result.value.results) {
         for (const r of result.value.results) {
-          if (!seenUrls.has(r.url)) {
-            seenUrls.add(r.url);
-            allRawResults.push({
-              url: r.url,
-              title: r.title ?? '',
-              content: r.content ?? '',
-              score: r.score,
-              publishedDate: r.publishedDate,
-            });
-          }
+          if (!r.url || seenUrls.has(r.url)) continue;
+          if (!validateSafeExternalUrl(r.url).valid) continue;
+          seenUrls.add(r.url);
+          const safeContent = assessPromptInjection(r.content ?? '', 'web').sanitized;
+          allRawResults.push({
+            url: r.url,
+            title: (r.title ?? '').slice(0, 300),
+            content: safeContent,
+            score: r.score,
+            publishedDate: r.publishedDate,
+          });
         }
       }
     }
@@ -318,9 +321,10 @@ export async function performResearch(
 
       if (extractResult.results) {
         for (const er of extractResult.results) {
-          if (er.url && er.rawContent) {
-            // Truncate to 1500 chars to keep context within token limits
-            extractedMap.set(er.url, er.rawContent.slice(0, 1500));
+          if (er.url && er.rawContent && validateSafeExternalUrl(er.url).valid) {
+            // Neutralize prompt-injection patterns in scraped webpages & cap length
+            const safeExtracted = assessPromptInjection(er.rawContent, 'web').sanitized.slice(0, 1500);
+            extractedMap.set(er.url, safeExtracted);
           }
         }
       }

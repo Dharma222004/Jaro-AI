@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { JaroLogo } from '@/components/brand/JaroLogo';
 import { MessageBubble } from './MessageBubble';
-import { getMemoryEnabled } from '@/lib/memory/client';
+import { ensureSignedSession, getMemoryEnabled, memoryAuthorization } from '@/lib/memory/client';
 import { AttachmentGallery } from './AttachmentGallery';
 import type { ImageAttachment } from '@/types/attachment';
 import {
@@ -73,6 +73,7 @@ export function ResearchAssistant() {
       }
       setHydrated(true);
       setMemoryEnabledState(getMemoryEnabled());
+      void ensureSignedSession();
     });
     return () => { cancelled = true; };
   }, []);
@@ -238,12 +239,18 @@ export function ResearchAssistant() {
     };
 
     try {
+      const authToken = await ensureSignedSession();
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? memoryAuthorization(authToken) : {}),
+        },
         body: JSON.stringify({
           query,
           message: query,
+          conversationId,
+          sourceMessageId: userMessage.id,
           history: priorHistory,
           context: requestContext,
           memoryEnabled,
@@ -261,6 +268,7 @@ export function ResearchAssistant() {
       const decoder = new TextDecoder();
       let buffer = '';
       let lastRawEvent = '';
+      let usesCanonicalStream = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -273,58 +281,118 @@ export function ResearchAssistant() {
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
           if (!raw || raw === '[DONE]') continue;
-          // Guard against accidental identical consecutive SSE events
           if (raw === lastRawEvent) continue;
           lastRawEvent = raw;
 
+          let event: Record<string, unknown>;
           try {
-            const event = JSON.parse(raw);
-            if (event.type === 'stage') {
-              const stageObj = event.stage && typeof event.stage === 'object'
-                ? event.stage
-                : { id: event.stage, status: event.status ?? 'completed', detail: event.detail };
-              updateMessage(conversationId, assistantId, (message) => ({
-                ...message,
-                stages: [
-                  ...(message.stages ?? []).filter((s) => s.id !== stageObj.id),
-                  stageObj,
-                ],
-              }));
-            } else if (event.type === 'delta' || event.type === 'token') {
-              const textPiece = event.delta ?? event.text ?? '';
-              accumulated += textPiece;
-              if (contentFrame == null) {
-                contentFrame = requestAnimationFrame(flushContent);
-              }
-            } else if (event.type === 'sources') {
-              updateMessage(conversationId, assistantId, { sources: event.sources });
-            } else if (event.type === 'artifact') {
-              updateMessage(conversationId, assistantId, { artifact: event.artifact });
-            } else if (event.type === 'complete' || event.type === 'done') {
-              flushContent();
-              updateMessage(conversationId, assistantId, {
-                status: 'complete',
-                intent: event.intent,
-                suggestions: event.suggestions,
-                dataTimestamp: event.dataTimestamp,
-              });
-            } else if (event.type === 'error') {
-              throw new Error(event.message || event.error || 'Stream received error signal.');
-            }
+            event = JSON.parse(raw) as Record<string, unknown>;
           } catch (parseError) {
             console.warn('[Research Stream Parse Error]', parseError);
+            continue;
+          }
+
+          if (event.type === 'request_started') {
+            usesCanonicalStream = true;
+          } else if (event.type === 'context_retrieval_started') {
+            usesCanonicalStream = true;
+          } else if (event.type === 'planning_started' || event.type === 'response_generation_started') {
+            usesCanonicalStream = true;
+          } else if (event.type === 'tool_execution_started') {
+            usesCanonicalStream = true;
+            const tName = typeof event.toolName === 'string' ? event.toolName : 'tool';
+            updateMessage(conversationId, assistantId, (message) => ({
+              ...message,
+              stages: [
+                ...(message.stages ?? []).filter((s) => s.id !== `tool_${tName}`),
+                { id: `tool_${tName}`, status: 'running', detail: typeof event.detail === 'string' ? event.detail : `Executing ${tName}` },
+              ],
+            }));
+          } else if (event.type === 'tool_execution_completed') {
+            usesCanonicalStream = true;
+            const tName = typeof event.toolName === 'string' ? event.toolName : 'tool';
+            updateMessage(conversationId, assistantId, (message) => ({
+              ...message,
+              stages: [
+                ...(message.stages ?? []).filter((s) => s.id !== `tool_${tName}`),
+                {
+                  id: `tool_${tName}`,
+                  status: event.status === 'completed' ? 'completed' : 'failed',
+                  detail: `${tName} (${typeof event.durationMs === 'number' ? `${event.durationMs}ms` : 'done'})`,
+                },
+              ],
+            }));
+          } else if (event.type === 'stage') {
+            const stageObj = event.stage && typeof event.stage === 'object'
+              ? event.stage as { id: string; status: 'running' | 'completed' | 'failed'; detail?: string }
+              : { id: String(event.stage ?? 'stage'), status: (event.status as 'running' | 'completed' | 'failed') ?? 'completed', detail: typeof event.detail === 'string' ? event.detail : undefined };
+            updateMessage(conversationId, assistantId, (message) => ({
+              ...message,
+              stages: [
+                ...(message.stages ?? []).filter((s) => s.id !== stageObj.id),
+                stageObj,
+              ],
+            }));
+          } else if (event.type === 'context' && event.context && typeof event.context === 'object') {
+            const nextCtx = event.context as LocalConversation['context'];
+            updateConversation(conversationId, (conv) => ({
+              ...conv,
+              context: nextCtx,
+            }));
+          } else if (event.type === 'response_text_delta') {
+            usesCanonicalStream = true;
+            const textPiece = typeof event.delta === 'string' ? event.delta : typeof event.text === 'string' ? event.text : '';
+            accumulated += textPiece;
+            if (contentFrame == null) {
+              contentFrame = requestAnimationFrame(flushContent);
+            }
+          } else if ((event.type === 'delta' || event.type === 'token') && !usesCanonicalStream) {
+            const textPiece = typeof event.delta === 'string' ? event.delta : typeof event.text === 'string' ? event.text : '';
+            accumulated += textPiece;
+            if (contentFrame == null) {
+              contentFrame = requestAnimationFrame(flushContent);
+            }
+          } else if (event.type === 'sources') {
+            updateMessage(conversationId, assistantId, { sources: event.sources as LocalMessage['sources'] });
+          } else if (event.type === 'artifact') {
+            updateMessage(conversationId, assistantId, { artifact: event.artifact as LocalMessage['artifact'] });
+          } else if (event.type === 'suggestions') {
+            updateMessage(conversationId, assistantId, { suggestions: event.suggestions as LocalMessage['suggestions'] });
+          } else if (event.type === 'request_completed' || ((event.type === 'complete' || event.type === 'done') && !usesCanonicalStream)) {
+            flushContent();
+            updateMessage(conversationId, assistantId, {
+              status: 'complete',
+              intent: event.intent as LocalMessage['intent'],
+              suggestions: (event.suggestions as LocalMessage['suggestions']) ?? undefined,
+              dataTimestamp: typeof event.dataTimestamp === 'string' ? event.dataTimestamp : undefined,
+            });
+          } else if (event.type === 'request_failed' || (event.type === 'error' && !usesCanonicalStream)) {
+            throw new Error(
+              (typeof event.message === 'string' && event.message) ||
+              (typeof event.error === 'string' && event.error) ||
+              'Stream received error signal.',
+            );
           }
         }
       }
       flushContent();
-      updateMessage(conversationId, assistantId, { status: 'complete' });
+      updateMessage(conversationId, assistantId, (prev) => ({
+        ...prev,
+        status: prev.status === 'error' ? 'error' : 'complete',
+      }));
     } catch (err: unknown) {
-      if ((err as Error)?.name !== 'AbortError') {
+      if ((err as Error)?.name === 'AbortError') {
+        flushContent();
+        updateMessage(conversationId, assistantId, {
+          status: 'complete',
+          content: accumulated || '_Request cancelled._',
+        });
+      } else {
         const errMsg = err instanceof Error ? err.message : 'Research pipeline encountered an unexpected issue.';
         updateMessage(conversationId, assistantId, {
           status: 'error',
           error: errMsg,
-          content: accumulated || 'An error occurred while analyzing the company. Please retry.',
+          content: accumulated || `Unable to process request: ${errMsg}`,
         });
       }
     } finally {
@@ -466,8 +534,14 @@ export function ResearchAssistant() {
       </div>
 
       {showJumpToLatest && (
-        <button className="jump-to-latest" onClick={jumpToLatest} aria-label="Jump to the latest response">
-          <ArrowDown size={14} /> <span>{isStreaming ? 'New response' : 'Jump to latest'}</span>
+        <button
+          type="button"
+          className="jump-to-latest"
+          onClick={jumpToLatest}
+          aria-label={isStreaming ? 'Scroll to new response' : 'Scroll to latest message'}
+          title={isStreaming ? 'Scroll to new response' : 'Scroll to latest message'}
+        >
+          <ArrowDown size={16} strokeWidth={2.2} />
         </button>
       )}
 

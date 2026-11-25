@@ -121,7 +121,7 @@ export function TechnicalChart({ initial }: { initial: TechnicalAnalysisResult }
     }
 
     const width = container.clientWidth || 800;
-    const height = 380;
+    const height = width < 540 ? 270 : 380;
 
     const chart = createChart(container, {
       width,
@@ -268,7 +268,10 @@ export function TechnicalChart({ initial }: { initial: TechnicalAnalysisResult }
       if (!entries[0] || !chartRef.current) return;
       const { width: newWidth } = entries[0].contentRect;
       if (newWidth > 0) {
-        chartRef.current.applyOptions({ width: newWidth });
+        chartRef.current.applyOptions({
+          width: newWidth,
+          height: newWidth < 540 ? 270 : 380,
+        });
       }
     });
 

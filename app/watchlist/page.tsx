@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, BookMarked, Search, Trash2 } from 'lucide-react';
 import type { WatchlistItem } from '@/types/research';
 import { formatRelativeTime } from '@/lib/formatting/numbers';
+import { ensureSignedSession, memoryAuthorization } from '@/lib/memory/client';
 
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -15,7 +16,8 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/watchlist')
+    ensureSignedSession()
+      .then((token) => fetch('/api/watchlist', { headers: memoryAuthorization(token) }))
       .then((response) => response.json())
       .then((data) => { if (!cancelled) setWatchlist(data.watchlist ?? []); })
       .catch(() => { /* ignore */ })
@@ -26,8 +28,14 @@ export default function WatchlistPage() {
   const handleRemove = async (id: string) => {
     setRemoving(id);
     try {
-      await fetch(`/api/watchlist/${id}`, { method: 'DELETE' });
-      setWatchlist((previous) => previous.filter((item) => item.id !== id));
+      const token = await ensureSignedSession();
+      const res = await fetch(`/api/watchlist/${id}`, {
+        method: 'DELETE',
+        headers: memoryAuthorization(token),
+      });
+      if (res.ok) {
+        setWatchlist((previous) => previous.filter((item) => item.id !== id));
+      }
     } catch {
       /* ignore */
     } finally {

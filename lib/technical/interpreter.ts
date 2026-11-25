@@ -11,6 +11,7 @@ export function interpretTechnicals(params: {
   expiresAt: string;
   validation: CandleValidationSummary;
   staleCache: boolean;
+  isDelayedFeed?: boolean;
 }): Omit<TechnicalAnalysisResult, 'series' | 'indicators'> {
   const { candles, calculated, timeframe } = params;
   const latest = candles.at(-1);
@@ -104,7 +105,15 @@ export function interpretTechnicals(params: {
     neutralFindings: neutral,
     lastCandleAt: latest?.timestamp ?? null,
     retrievedAt: params.retrievedAt,
-    dataStatus: params.staleCache ? 'stale-cache' : params.cacheHit ? 'cached' : isCurrentSessionCandle(latest?.timestamp) ? 'latest-available' : 'historical',
+    dataStatus: params.staleCache
+      ? 'stale-cache'
+      : params.isDelayedFeed
+        ? 'delayed'
+        : params.cacheHit
+          ? 'cached'
+          : isCurrentSessionCandle(latest?.timestamp)
+            ? 'latest-available'
+            : 'historical',
     provider: 'Upstox',
     marketSession: marketSession(),
     cache: { hit: params.cacheHit, expiresAt: params.expiresAt },

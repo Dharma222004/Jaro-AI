@@ -26,6 +26,7 @@ import type {
 } from '@/types/research';
 import { formatDate, formatNumber } from '@/lib/formatting/numbers';
 import { LiveMarketPanel } from './LiveMarketPanel';
+import { ensureSignedSession, memoryAuthorization } from '@/lib/memory/client';
 
 interface ReportViewProps {
   report: ResearchReport;
@@ -57,9 +58,10 @@ export function ReportView({
   const handleAddToWatchlist = async () => {
     setIsAddingToWatchlist(true);
     try {
+      const token = await ensureSignedSession();
       const res = await fetch('/api/watchlist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...memoryAuthorization(token) },
         body: JSON.stringify({
           company: {
             name: report.company.name,

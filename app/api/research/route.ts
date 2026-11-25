@@ -1,22 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveCompanyFromQuery, runResearchPipeline } from '@/lib/research/orchestrator';
+import { enforceRouteRateLimit, resolveRequestAuth } from '@/lib/security/auth';
+import { assessPromptInjection, sanitizeUserMessage } from '@/lib/security/input-guard';
+import { recordSecurityAudit } from '@/lib/security/audit-logger';
+import { safePublicError } from '@/lib/security/redactor';
 import type { CompanyIdentity } from '@/types/company';
 
 export const maxDuration = 120; // 2 minutes for comprehensive research
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = resolveRequestAuth(req);
+    const limit = enforceRouteRateLimit({ request: req, bucket: 'research_pipeline', auth });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Research rate limit exceeded. Please retry shortly.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } },
+      );
+    }
+
     const body = await req.json();
     const { query, company: preResolvedCompany, forceRefresh, stream } = body;
 
-    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+    if (!query || typeof query !== 'string') {
       return NextResponse.json(
         { error: 'Research query is required.' },
         { status: 400 }
       );
     }
 
-    const trimmedQuery = query.trim();
+    const msgCheck = sanitizeUserMessage(query, 500);
+    if (!msgCheck.valid) {
+      return NextResponse.json({ error: msgCheck.error }, { status: 400 });
+    }
+    const injection = assessPromptInjection(msgCheck.text, 'user');
+    if (injection.severity === 'high') {
+      await recordSecurityAudit({
+        ownerKey: auth.ownerKey,
+        eventType: 'security_guard',
+        action: 'prompt_injection_blocked',
+        resource: '/api/research',
+        status: 'blocked',
+        clientIp: auth.clientIp,
+        metadata: { reasons: injection.reasons },
+      });
+      return NextResponse.json(
+        { error: 'Your request could not be processed due to disallowed control instructions.' },
+        { status: 400 },
+      );
+    }
+
+    const trimmedQuery = injection.sanitized;
 
     // Streaming mode via Server-Sent Events
     if (stream === true) {
@@ -190,9 +224,9 @@ export async function POST(req: NextRequest) {
       fromCache: result.fromCache,
     });
   } catch (err) {
-    console.error('[api/research] Unhandled error:', err);
+    console.error('[api/research] Unhandled error:', safePublicError(err));
     return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
+      { error: safePublicError(err, 'An unexpected error occurred. Please try again.') },
       { status: 500 }
     );
   }

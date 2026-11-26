@@ -7,7 +7,11 @@ import {
   isInvestmentDecisionQuery,
   outOfDomainResponse,
 } from './query-classifier';
-import { collectQuestionEvidence, screenIndianEquities } from './conversational-collector';
+import { collectQuestionEvidence } from './conversational-collector';
+import { runStockScreener } from '@/lib/screener/service';
+import { extractScreenerOrdinalRef } from '@/lib/screener/intent-classifier';
+import { persistScreenerRun } from '@/lib/screener/repository';
+import type { ScreenerExecutionResult } from '@/types/screener';
 import { resolveCompanyFromQuery, runResearchPipeline } from './orchestrator';
 import { parseLookbackDate, parseTimeframe, runTechnicalAnalysis } from '@/lib/technical/engine';
 import type { CompanyCandidate, CompanyIdentity } from '@/types/company';
@@ -149,7 +153,7 @@ What would you like to explore today?`);
   }
 
   if (classification.intent === 'stock_screening' || classification.intent === 'stock_discovery') {
-    await handleScreening(query, classification, context, callbacks);
+    await handleScreening(query, classification, context, callbacks, extraOpts);
     return;
   }
 
@@ -352,89 +356,70 @@ async function handleScreening(
   classification: QueryClassification,
   context: ConversationContext,
   callbacks: ConversationCallbacks,
+  extraOpts?: RuntimeExtras,
 ) {
-  callbacks.onStage?.('screening', 'running', 'Fetching structured market and fundamental data for the screening universe');
-  const result = await screenIndianEquities({
-    ...classification.screeningFilters,
-    sector: classification.screeningFilters?.sector ?? classification.sector ?? undefined,
+  callbacks.onStage?.('screening', 'running', 'Parsing filters & loading canonical NSE/BSE equity universe');
+  const result = await runStockScreener({
+    query,
+    context,
+    signal: extraOpts?.signal,
+    onProgress: (detail) => callbacks.onStage?.('screening', 'running', detail),
   });
-  const technicalScreen = /\b(technical|bullish|bearish|momentum|rsi|golden cross|death cross|volume breakout|support|moving average|ema|sma)\b/i.test(query);
-  if (technicalScreen && result.rows.length) {
-    callbacks.onStage?.('technical_screen', 'running', 'Applying exchange candle-based technical filters to fundamental candidates');
-    const candidates = result.rows.slice(0, 8);
-    const settled = await Promise.allSettled(candidates.map((row) => runTechnicalAnalysis({ query: row.ticker, timeframe: parseTimeframe(query), exchange: 'NSE' })));
-    const enriched = candidates.flatMap((row, index) => {
-      const item = settled[index];
-      if (item.status !== 'fulfilled') return [];
-      const technical = item.value;
-      const latest = technical.candles.at(-1)?.close ?? null;
-      return [{
-        ...row,
-        technicalTrend: technical.trend,
-        rsi14: technical.indicators.rsi14,
-        aboveEma200: latest != null && technical.indicators.ema200 != null ? latest > technical.indicators.ema200 : null,
-        relativeVolume: technical.indicators.relativeVolume,
-        support: technical.indicators.support,
-        _signals: technical.signals,
-      }];
-    });
-    const lower = query.toLowerCase();
-    result.rows = enriched.filter((row) => {
-      if (/rsi\s*(?:below|under|<)\s*30|oversold/.test(lower)) return row.rsi14 != null && row.rsi14 < 30;
-      if (/golden cross/.test(lower)) return row._signals.some((signal) => signal.name === 'Golden Cross');
-      if (/death cross/.test(lower)) return row._signals.some((signal) => signal.name === 'Death Cross');
-      if (/volume breakout/.test(lower)) return row._signals.some((signal) => signal.name.includes('Volume-confirmed'));
-      if (/near (?:important )?support/.test(lower)) {
-        const price = row.price;
-        return row.support != null && price > 0 && Math.abs((price - row.support) / price) <= 0.03;
-      }
-      if (/bearish/.test(lower)) return row.technicalTrend === 'bearish';
-      return row.technicalTrend === 'bullish' && (row.rsi14 ?? 0) >= 50;
-    }).map((row) => {
-      const clean = { ...row };
-      delete (clean as Partial<typeof clean>)._signals;
-      return clean;
-    });
-    result.sources.push({
-      id: 'upstox_screen',
-      url: 'https://upstox.com/developer/api-documentation/v3/get-historical-candle-data',
-      title: 'Upstox Historical Candle Data V3',
-      domain: 'upstox.com',
-      sourceType: 'financial_database',
-      authority: 'high',
-      retrievedAt: new Date().toISOString(),
-      snippet: 'OHLCV candles used for local technical screening calculations.',
-    });
-    result.appliedFilters.push(`Exchange ${parseTimeframe(query)} technical confirmation`);
-    const succeeded = enriched.length;
-    callbacks.onStage?.('technical_screen', 'completed', `${result.rows.length} matches after technical confirmation (${succeeded}/${candidates.length} datasets retrieved)`);
-    if (!succeeded) result.limitations.push('Exchange technical candle data could not be retrieved for the shortlisted candidates; no candidate passed the technical stage.');
+
+  if (context && result.jobId) {
+    await persistScreenerRun('default', result).catch(() => {});
   }
+
   callbacks.onSources?.(result.sources);
 
   const artifact: ConversationArtifact = {
     kind: 'screening',
-    title: classification.intent === 'stock_discovery' ? 'Data-backed stock discovery' : 'Structured stock screen',
-    rows: result.rows,
-    universeSize: result.universeSize,
-    matchedCount: result.rows.length,
-    appliedFilters: result.appliedFilters,
+    title: 'Jaro AI · Stock Screener',
+    rows: result.rows.map((r) => ({
+      name: r.name,
+      ticker: r.primaryTicker,
+      sector: r.sector,
+      price: r.price,
+      marketCapCr: r.marketCapCr,
+      revenueGrowthPct: r.revenueGrowthPct,
+      earningsGrowthPct: r.netProfitGrowthPct,
+      roePct: r.roePct,
+      debtToEquity: r.debtToEquity,
+      operatingCashFlowCr: r.operatingCashFlowCr,
+      freeCashFlowCr: r.freeCashFlowCr,
+      distanceFrom52WeekLowPct: r.distanceFrom52WeekLowPct,
+      institutionalHoldingPct: r.diiHoldingPct,
+      rsi14: r.rsi14,
+      relativeVolume: r.relativeVolume,
+      fetchedAt: r.priceTimestamp,
+    })),
+    universeSize: result.coverage.validQuoteCount || result.coverage.totalEligibleSecurities,
+    matchedCount: result.coverage.matchedCount,
+    appliedFilters: result.interpretedFilterLabels,
+    screenerResult: result,
   };
   callbacks.onArtifact?.(artifact);
 
   const nextContext: ConversationContext = {
     ...context,
-    activeSector: classification.sector ?? context.activeSector,
-    lastIntent: classification.intent,
+    activeSector: result.spec.sector ?? context.activeSector,
+    lastIntent: 'stock_screening',
+    activeScreenerSpec: result.spec,
+    activeScreenerRows: result.rows,
   };
   callbacks.onContext?.(nextContext);
-  callbacks.onStage?.('screening', 'completed', `${result.rows.length} matches from ${result.universeSize} successfully retrieved companies`);
+  callbacks.onStage?.(
+    'screening',
+    'completed',
+    `${result.coverage.matchedCount} matches from ${result.coverage.validQuoteCount} evaluated (${result.coverage.totalEligibleSecurities} eligible NSE/BSE equities)`,
+  );
 
-  callbacks.onDelta(buildScreeningMarkdown(query, result));
+  callbacks.onDelta(buildScreenerMarkdown(result));
   callbacks.onSuggestions?.([
-    'Compare the top two companies in this screen',
-    'Add a low debt filter',
-    'Explain the risks in using this screen',
+    'Show only NSE stocks',
+    'Show only the banking companies',
+    'Sort by highest volume',
+    result.rows[0] ? `Explain the fundamentals of ${result.rows[0].primaryTicker}` : 'Relax the market cap filter',
   ]);
 }
 
@@ -478,6 +463,12 @@ async function handleCompanyResearch(
     return;
   }
   const requested = [...classification.companies];
+
+  // Resolve ordinal drill-downs into active screener results (e.g. "Explain the fundamentals of the first stock")
+  const ordinalIdx = extractScreenerOrdinalRef(query);
+  if (requested.length === 0 && ordinalIdx != null && context.activeScreenerRows?.[ordinalIdx]) {
+    requested.push(context.activeScreenerRows[ordinalIdx].primaryTicker);
+  }
 
   // If no companies were classified, try extracting from query directly
   if (requested.length === 0) {
@@ -1724,23 +1715,28 @@ ${result.warnings.map((warning) => `- ${warning}`).join('\n')}
 > Generated ${formatDateTime(result.generatedAt)} using validated ${result.timeframe} exchange candles. Results include the stated cost and slippage assumptions.`;
 }
 
-function buildScreeningMarkdown(
-  query: string,
-  result: Awaited<ReturnType<typeof screenIndianEquities>>,
-): string {
-  const filters = result.appliedFilters.map((item) => `- ${item}`).join('\n');
-  const hasTechnical = result.rows.some((row) => row.technicalTrend != null);
-  const table = result.rows.length
-    ? hasTechnical
-      ? `| Company | Price* | Revenue growth | ROE | D/E | Trend | RSI | Above EMA200 | Rel. volume |\n|---|---:|---:|---:|---:|---|---:|---|---:|\n${result.rows.map((row) => `| ${row.name} (${row.ticker}) | ₹${formatNum(row.price)} | ${formatPct(row.revenueGrowthPct)} | ${formatPct(row.roePct)} | ${formatNum(row.debtToEquity, 2)} | ${row.technicalTrend ?? 'N/A'} | ${formatNum(row.rsi14)} | ${row.aboveEma200 == null ? 'N/A' : row.aboveEma200 ? 'Yes' : 'No'} | ${formatNum(row.relativeVolume, 2)}x |`).join('\n')}`
-      : `| Company | Quality score* | Price** | Mkt cap (₹ Cr) | Revenue growth | Earnings growth | ROE | D/E | FCF (₹ Cr) | From 52W low |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n${result.rows.map((row) => `| ${row.name} (${row.ticker}) | ${row.qualityScore ?? 'N/A'}/100 | ₹${formatNum(row.price)} | ${formatNum(row.marketCapCr)} | ${formatPct(row.revenueGrowthPct)} | ${formatPct(row.earningsGrowthPct)} | ${formatPct(row.roePct)} | ${formatNum(row.debtToEquity, 2)} | ${formatNum(row.freeCashFlowCr)} | ${formatPct(row.distanceFrom52WeekLowPct)} |`).join('\n')}`
-    : 'No company in the successfully retrieved universe matched every available filter.';
-  const limitations = result.limitations.length ? `\n\n### Important limitations\n${result.limitations.map((item) => `- ${item}`).join('\n')}` : '';
-  return `# Structured Indian Equity Screen\n\n**Question:** ${query}\n\n### Filters applied\n${filters}\n\n${table}\n\n### How to interpret this screen\n- Results are computed from structured official financial and exchange fundamental fields—not generated from model memory.
-- The screen covered ${result.universeSize} companies whose data was successfully retrieved from a disclosed ${30}-company universe.
-- *Quality score is an explainable ranking of available ROE, growth, leverage and cash-flow fields; missing fields are excluded and it is not a probability.
-- A match is a research starting point, not an investment recommendation.
-- Verify shortlisted figures against the latest NSE/BSE filing and annual report.${limitations}\n\n> **Data note:** Retrieved ${formatDateTime(result.retrievedAt)}. Official exchange trading values. Missing fields fail their corresponding filter rather than being guessed.`;
+function buildScreenerMarkdown(result: ScreenerExecutionResult): string {
+  const filters = result.interpretedFilterLabels.map((item) => `- ${item}`).join('\n');
+  const cov = result.coverage;
+  const topList = result.rows.slice(0, 10).map((r, i) =>
+    `${i + 1}. **${r.name}** (\`${r.nseSymbol ?? r.primaryTicker}\`${r.bseCode ? ` / BSE: \`${r.bseCode}\`` : ''}) — Price: **₹${r.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}** · SMA 50: ${r.sma50 != null ? `₹${r.sma50.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : 'N/A'}${r.diffFromSma50Pct != null ? ` (${r.diffFromSma50Pct >= 0 ? '+' : ''}${r.diffFromSma50Pct.toFixed(2)}%)` : ''} · Vol: ${r.dailyVolumeShares != null ? `${(r.dailyVolumeShares / 1e5).toFixed(2)} L` : 'N/A'} · MCap: ${r.marketCapCr != null ? `₹${Math.round(r.marketCapCr).toLocaleString('en-IN')} Cr` : 'N/A'}`,
+  ).join('\n');
+
+  const limitations = result.limitations.length
+    ? `\n\n### Coverage & Data Notes\n${result.limitations.map((item) => `- ${item}`).join('\n')}`
+    : '';
+
+  return `## Jaro AI · Stock Screener Results
+
+**Query:** ${result.query}
+**Evaluated:** ${cov.validQuoteCount} of ${cov.totalEligibleSecurities} eligible NSE/BSE securities · **Matched:** ${cov.matchedCount} · **Excluded:** ${cov.excludedCount}${cov.unavailableCount > 0 ? ` · **Unavailable Data:** ${cov.unavailableCount}` : ''}
+
+### Filters Applied
+${filters}
+
+${result.rows.length > 0 ? `### Top Matching Candidates\n${topList}` : 'No securities in the evaluated universe satisfied every mandatory filter condition.'}${limitations}
+
+> **Data Freshness:** Market ${result.marketStatus.toUpperCase()} · Executed ${result.executionTimestampIst}. Screening matches are quantitative research candidates, not personalized investment recommendations.`;
 }
 
 function buildComparisonArtifact(

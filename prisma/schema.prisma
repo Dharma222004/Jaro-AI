@@ -399,3 +399,39 @@ model ToolExecutionLog {
   @@index([ownerKey, createdAt])
   @@map("tool_execution_logs")
 }
+
+model SavedScreener {
+  id             String   @id @default(cuid())
+  ownerKey       String
+  name           String
+  specJson       String
+  exchanges      String   @default("BOTH")
+  timeframe      String   @default("1d")
+  lastRunAt      DateTime?
+  lastMatchCount Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([ownerKey, updatedAt])
+  @@map("saved_screeners")
+}
+
+model ScreenerJobRun {
+  id             String   @id @default(cuid())
+  jobId          String   @unique
+  ownerKey       String
+  query          String
+  status         String   // queued | running | completed | partial | cancelled | failed
+  specJson       String
+  coverageJson   String   @default("{}")
+  resultJson     String   @default("{}")
+  matchedCount   Int      @default(0)
+  eligibleCount  Int      @default(0)
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([ownerKey, createdAt])
+  @@index([jobId])
+  @@map("screener_job_runs")
+}

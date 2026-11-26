@@ -1,5 +1,6 @@
 import { analyzeWithGroq } from '@/lib/groq/client';
 import { selectModel } from '@/lib/ai/model-router';
+import { isStockScreeningQuery } from '@/lib/screener/intent-classifier';
 import type {
   ConversationContext,
   QueryClassification,
@@ -93,6 +94,20 @@ export async function classifyResearchQuery(
 ): Promise<QueryClassification> {
   if (isProjectContextQuery(query)) return fallbackClassification(query, context);
 
+  // Fast-path 1: Multi-stock natural language screening (must never route to single-stock Breakout & Retest)
+  if (isStockScreeningQuery(query, context)) {
+    const base = fallbackClassification(query, context);
+    return {
+      ...base,
+      intent: 'stock_screening',
+      confidence: 0.96,
+      companies: [],
+      isFollowUp: Boolean(context?.activeScreenerSpec),
+      requiresFreshData: true,
+      rationale: 'Deterministic stock-screening classification: multi-stock filter/scan criteria detected.',
+    };
+  }
+
   // Fast-path: Obvious conversational personal finance, budgeting, mutual funds or education with no company mentioned
   const qLower = query.toLowerCase();
   const fastConversational = (
@@ -158,6 +173,7 @@ export function isProjectContextQuery(query: string) {
 
 function fallbackIntent(query: string, context?: ConversationContext): ResearchIntent {
   const q = query.toLowerCase();
+  if (isStockScreeningQuery(query, context)) return 'stock_screening';
   const extracted = extractFallbackCompanies(query, context);
   const hasPronounRef = Boolean(context?.activeCompanies?.length && /\b(it|its|they|their|that company|this stock|what about|how about)\b/.test(q));
   if (isInvestmentDecisionQuery(query, context)) return 'investment_decision';

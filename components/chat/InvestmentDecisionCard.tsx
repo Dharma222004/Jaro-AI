@@ -24,6 +24,23 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
             <JaroMark size={24} />
             <span>Jaro AI · {strategy ? `${strategy.strategyName} ${strategy.strategyVersion}` : 'Investment Decision Engine'}</span>
           </div>
+          <div className="decision-company-header">
+            <h1 className="decision-company-name">
+              {result.company?.name || result.technical?.primary?.instrument?.name || result.company?.ticker || 'Equity Analysis'}
+            </h1>
+            <div className="decision-company-tags">
+              <span className="decision-ticker-pill">
+                {result.company?.exchange || result.technical?.primary?.instrument?.exchange || 'NSE'}:{' '}
+                {result.company?.ticker || result.technical?.primary?.instrument?.trading_symbol}
+              </span>
+              {result.company?.sector && (
+                <span className="decision-sector-pill">{result.company.sector}</span>
+              )}
+              {result.company?.isin && (
+                <span className="decision-sector-pill">ISIN: {result.company.isin}</span>
+              )}
+            </div>
+          </div>
           <div className="decision-badge-wrap">
             <span className={`decision-badge ${result.classification.toLowerCase()}`}>
               {statusLabel(result)}
@@ -159,7 +176,10 @@ export function InvestmentDecisionCard({ result }: { result: InvestmentDecisionR
 
       {/* Interactive Technical Chart Canvas */}
       {result.technical?.primary && (
-        <TechnicalChart initial={result.technical.primary} />
+        <TechnicalChart
+          initial={result.technical.primary}
+          companyName={result.company?.name}
+        />
       )}
 
       {/* Entry, Targets & Risk Scenarios */}

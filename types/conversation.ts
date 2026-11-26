@@ -3,6 +3,7 @@ import type { ResearchReport, ResearchSourceMeta } from './research';
 import type { TechnicalAnalysisResult } from './technical';
 import type { InvestmentDecisionResult, InvestorPositionInput } from './decision';
 import type { RetrievedMemory } from './memory';
+import type { ScreenerCandidateRow, ScreenerExecutionResult, ScreenerSpec } from './screener';
 
 export type ResearchIntent =
   | 'company_research'
@@ -72,6 +73,8 @@ export interface ConversationContext {
   pendingClarifications?: string[];
   retrievedMemories?: RetrievedMemory[];
   conversationSummary?: string;
+  activeScreenerSpec?: ScreenerSpec;
+  activeScreenerRows?: ScreenerCandidateRow[];
 }
 
 export interface ConversationHistoryMessage {
@@ -147,6 +150,7 @@ export type ConversationArtifact =
       universeSize: number;
       matchedCount: number;
       appliedFilters: string[];
+      screenerResult?: ScreenerExecutionResult;
     };
 
 export interface AssistantMessageData {

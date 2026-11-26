@@ -17,8 +17,16 @@ import type { TechnicalAnalysisResult, TechnicalTimeframe } from '@/types/techni
 
 const TIMEFRAMES: TechnicalTimeframe[] = ['5m', '15m', '30m', '1h', '1d', '1w', '1mo'];
 
-export function TechnicalChart({ initial }: { initial: TechnicalAnalysisResult }) {
+export function TechnicalChart({
+  initial,
+  companyName,
+}: {
+  initial: TechnicalAnalysisResult;
+  companyName?: string;
+}) {
   const [result, setResult] = useState(initial);
+  const displayCompanyName =
+    companyName || result.instrument?.name || result.instrument?.trading_symbol || 'Price Chart';
   const [loading, setLoading] = useState(false);
   const [activeLegend, setActiveLegend] = useState<{
     time?: string;
@@ -314,31 +322,41 @@ export function TechnicalChart({ initial }: { initial: TechnicalAnalysisResult }
     <div className="technical-chart-card">
       {/* Top Toolbar */}
       <div className="technical-chart-toolbar">
-        <div className="timeframe-tabs">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf}
-              aria-pressed={tf === result.timeframe}
-              className={`tf-btn ${tf === result.timeframe ? 'active' : ''}`}
-              onClick={() => changeTimeframe(tf)}
-              type="button"
-            >
-              {tf}
-            </button>
-          ))}
+        <div className="chart-company-identity">
+          <strong className="chart-company-name">{displayCompanyName}</strong>
+          <span className="chart-symbol-badge">
+            {result.instrument.exchange}: {result.instrument.trading_symbol}
+          </span>
+          <span className="chart-timeframe-badge">{result.timeframe.toUpperCase()}</span>
         </div>
 
-        <div className="chart-controls">
-          {loading && <LoaderCircle size={14} className="animate-spin text-accent" />}
-          <button onClick={zoomIn} title="Zoom in" type="button" aria-label="Zoom in">
-            <Plus size={14} />
-          </button>
-          <button onClick={zoomOut} title="Zoom out" type="button" aria-label="Zoom out">
-            <Minus size={14} />
-          </button>
-          <button onClick={fitContent} title="Fit chart" type="button" aria-label="Fit chart">
-            <RotateCcw size={13} />
-          </button>
+        <div className="chart-toolbar-actions">
+          <div className="timeframe-tabs">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                aria-pressed={tf === result.timeframe}
+                className={`tf-btn ${tf === result.timeframe ? 'active' : ''}`}
+                onClick={() => changeTimeframe(tf)}
+                type="button"
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+
+          <div className="chart-controls">
+            {loading && <LoaderCircle size={14} className="animate-spin text-accent" />}
+            <button onClick={zoomIn} title="Zoom in" type="button" aria-label="Zoom in">
+              <Plus size={14} />
+            </button>
+            <button onClick={zoomOut} title="Zoom out" type="button" aria-label="Zoom out">
+              <Minus size={14} />
+            </button>
+            <button onClick={fitContent} title="Fit chart" type="button" aria-label="Fit chart">
+              <RotateCcw size={13} />
+            </button>
+          </div>
         </div>
       </div>
 

@@ -20,6 +20,7 @@ import { JaroLogo } from '@/components/brand/JaroLogo';
 import { MarkdownAnswer } from './MarkdownAnswer';
 import { TechnicalChart } from './TechnicalChart';
 import { InvestmentDecisionCard } from './InvestmentDecisionCard';
+import { StockScreenerResult } from './StockScreenerResult';
 import type { ResearchSourceMeta } from '@/types/research';
 import type {
   ConversationArtifact,
@@ -67,9 +68,10 @@ function SourceList({ sources, open, onOpenChange, citationScope }: SourceListPr
 
 interface ArtifactSummaryProps {
   artifact: ConversationArtifact;
+  onOpenCompany?: (prompt: string) => void;
 }
 
-function ArtifactSummary({ artifact }: ArtifactSummaryProps) {
+function ArtifactSummary({ artifact, onOpenCompany }: ArtifactSummaryProps) {
   if (artifact.kind === 'investment_decision') {
     return <InvestmentDecisionCard result={artifact.result} />;
   }
@@ -111,6 +113,9 @@ function ArtifactSummary({ artifact }: ArtifactSummaryProps) {
     );
   }
   if (artifact.kind === 'screening') {
+    if (artifact.screenerResult) {
+      return <StockScreenerResult initialResult={artifact.screenerResult} onOpenCompany={onOpenCompany} />;
+    }
     return (
       <div className="artifact-card compact">
         <div className="artifact-heading"><div><FileSearch size={15} /><strong>{artifact.title}</strong></div><span>{artifact.matchedCount} matches / {artifact.universeSize} retrieved</span></div>
@@ -160,7 +165,7 @@ export function MessageBubble({ message, copied, onCopy, onSuggestion, onRetry }
   return (
     <div className={`message-row assistant-message ${isError ? 'has-error' : ''} ${isStreaming ? 'is-streaming' : ''}`}>
       <div className="assistant-answer">
-        {message.artifact && <ArtifactSummary artifact={message.artifact} />}
+        {message.artifact && <ArtifactSummary artifact={message.artifact} onOpenCompany={onSuggestion} />}
 
         {/* Thinking panel: show while streaming OR if stages exist (starts collapsed by default) */}
         {(isStreaming || (message.stages ?? []).length > 0) && (

@@ -8,6 +8,7 @@ import {
   extractFallbackCompanies,
   isInvestmentDecisionQuery,
 } from '@/lib/research/query-classifier';
+import { isStockScreeningQuery } from '@/lib/screener/intent-classifier';
 import { resolveCompanyFromQuery } from '@/lib/research/orchestrator';
 import { determineTaskComplexity, selectModel, type ModelRouteSelection } from '@/lib/ai/model-router';
 import type { ConversationContext, QueryClassification } from '@/types/conversation';
@@ -15,6 +16,7 @@ import type { ConversationContext, QueryClassification } from '@/types/conversat
 export type ExecutionPath =
   | 'simple_conversation'
   | 'out_of_domain'
+  | 'stock_screening'
   | 'stock_research'
   | 'advanced_research'
   | 'portfolio_analysis';
@@ -66,9 +68,11 @@ export async function planExecutionTask(params: {
     };
   }
 
-  let classification = isInvestmentDecisionQuery(query, context)
-    ? classifyInvestmentDecisionQuery(query, context)
-    : await classifyResearchQuery(query, context);
+  let classification = isStockScreeningQuery(query, context)
+    ? await classifyResearchQuery(query, context)
+    : isInvestmentDecisionQuery(query, context)
+      ? classifyInvestmentDecisionQuery(query, context)
+      : await classifyResearchQuery(query, context);
 
   if (/\bSIP\b|\bmutual funds?\b|\bindex funds?\b|\b(?:flexi|multi|small|mid|large)[ -]?cap funds?\b/i.test(query)) {
     classification = { ...classification, intent: 'mutual_fund_research' };
@@ -156,10 +160,20 @@ export async function planExecutionTask(params: {
     };
   }
 
+  if (classification.intent === 'stock_screening' || classification.intent === 'stock_discovery') {
+    return {
+      path: 'stock_screening',
+      classification,
+      modelRoute,
+      requiresMarketData: true,
+      requiresResearchTools: true,
+      plannedTools: ['run_stock_screener'],
+      isGreeting: false,
+    };
+  }
+
   const isAdvanced =
     classification.intent === 'stock_comparison' ||
-    classification.intent === 'stock_screening' ||
-    classification.intent === 'stock_discovery' ||
     classification.companies.length >= 2 ||
     (/\b(fundamental|financial statement|ratio|historical|technical)\b/i.test(query) && classification.companies.length > 0);
 
